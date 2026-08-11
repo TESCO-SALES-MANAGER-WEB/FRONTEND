@@ -1,0 +1,257 @@
+.stat-card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.stat-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-icon {
+  color: var(--primary-color);
+  background: var(--bg-color);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.stat-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.flex-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sub-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stat-subtext {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.stat-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+  width: fit-content;
+}
+
+.badge-blue {
+  background-color: var(--sidebar-active-bg);
+  color: var(--primary-color);
+}
+
+.badge-green {
+  background-color: var(--success-green-bg);
+  color: var(--success-green);
+}
+
+.badge-red {
+  background-color: var(--alert-red-bg);
+  color: var(--alert-red);
+}
+
+.badge-amber {
+  background-color: var(--warning-yellow-bg);
+  color: var(--warning-yellow);
+}
+
+.red-text {
+  color: var(--alert-red);
+}
+
+.green-text {
+  color: var(--success-green);
+}
+
+/* Specific Variants */
+.variant-pending {
+  border-color: var(--alert-red);
+  background-color: #fffafaf5;
+}
+
+.alert-pulse-border {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border: 2px solid var(--alert-red);
+  border-radius: 12px;
+  opacity: 0.3;
+  animation: pulse-border 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-border {
+  0% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.02); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.variant-collection {
+  border-bottom: 4px solid var(--success-green);
+}
+
+.success-glow-bg {
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(56, 161, 105, 0.15) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Charts & Visuals */
+.stat-chart-container {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* Radial Progress (Calling) */
+.radial-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.radial-ring {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: conic-gradient(var(--primary-color) 84%, var(--border-color) 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radial-ring::before {
+  content: '';
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  background: white;
+  border-radius: 50%;
+}
+
+.radial-percentage {
+  position: relative;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* Timeline Preview (Appointments) */
+.timeline-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+}
+.timeline-dot.upcoming {
+  background-color: var(--warning-yellow);
+}
+
+.timeline-text {
+  color: var(--text-secondary);
+}
+
+/* Sparkline (Pipeline) */
+.sparkline-container {
+  height: 40px;
+  width: 100%;
+}
+
+.sparkline-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Progress Meter (Order Closing) */
+.progress-meter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-meter-bg {
+  width: 100%;
+  height: 8px;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-meter-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}

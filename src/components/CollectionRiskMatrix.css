@@ -1,0 +1,105 @@
+.collection-risk-matrix {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 16px;
+}
+
+.matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.total-risk {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--alert-red);
+  background: var(--alert-red-bg);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.risk-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: white;
+  transition: transform 0.2s;
+}
+
+.ledger-row:hover {
+  transform: translateX(4px);
+}
+
+.ledger-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ledger-client {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ledger-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ledger-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ledger-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.status-overdue { background: #fee2e2; color: #b91c1c; }
+.status-critical { background: var(--alert-red); color: white; }
+.status-pending { background: #fef08a; color: #b45309; }
+.status-upcoming { background: #f1f5f9; color: var(--text-secondary); }
+
+.follow-up-btn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.follow-up-btn:hover {
+  text-decoration: underline;
+}
+
+.priority-high {
+  border-left: 3px solid var(--alert-red);
+}
+
+.priority-medium {
+  border-left: 3px solid var(--warning-yellow);
+}
+
+.priority-low {
+  border-left: 3px solid var(--border-color);
+}

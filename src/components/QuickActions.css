@@ -1,0 +1,56 @@
+.global-quick-action-dock {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 900;
+  animation: slideUpFloat 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFloat {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dock-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 100px;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.dock-btn:hover {
+  background: var(--bg-color);
+  transform: translateY(-2px);
+}
+
+.primary-dock-btn {
+  background: var(--primary-color);
+  color: white;
+}
+
+.primary-dock-btn:hover {
+  background: var(--primary-hover);
+  color: white;
+}
+
+.dock-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+}

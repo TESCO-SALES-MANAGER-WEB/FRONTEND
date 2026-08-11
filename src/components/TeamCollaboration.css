@@ -1,0 +1,199 @@
+.team-collaboration-page {
+  padding: 24px 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.collab-split {
+  display: grid;
+  grid-template-columns: 1.5fr 1.2fr;
+  gap: 24px;
+  margin-top: 24px;
+  align-items: start;
+}
+
+.collab-chat-card, .collab-tasks-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 520px;
+}
+
+.chat-messages-container {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-message-bubble {
+  display: flex;
+  gap: 14px;
+}
+
+.chat-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.chat-message-content {
+  background-color: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border-top-left-radius: 2px;
+  flex: 1;
+}
+
+.chat-message-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.user-role {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.msg-time {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.msg-text {
+  font-size: 14px;
+  color: #334155;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.chat-input-bar {
+  display: flex;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  background-color: #f8fafc;
+  gap: 12px;
+}
+
+.chat-input-bar input {
+  flex: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  outline: none;
+  background-color: white;
+}
+
+.chat-input-bar input:focus {
+  border-color: var(--primary-color);
+}
+
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+}
+
+.collab-tasks-list {
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collab-task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: white;
+}
+
+.task-left-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-title-group h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.priority-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.priority-high {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.priority-medium {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.priority-low {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.task-assignee {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.task-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.task-status-badge.status-completed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.task-status-badge.status-inprogress {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.task-status-badge.status-pending {
+  background-color: #f1f5f9;
+  color: #475569;
+}

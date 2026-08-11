@@ -1,0 +1,8 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  background-color: var(--bg-color);
+  min-height: calc(100vh - 72px);
+}

@@ -1,0 +1,156 @@
+.reports-analytics-page {
+  padding: 24px 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.analytics-overview-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.analytics-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.analytics-card h3 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.sub-description {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  font-weight: 500;
+}
+
+.analytics-split {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.analytics-main-panel, .analytics-side-panel {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.channel-chart-container {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.channel-chart-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar-label-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.source-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.conversion-ratio {
+  color: #64748b;
+}
+
+.bar-visual-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar-visual-fill-total {
+  height: 16px;
+  background-color: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-visual-fill-closed {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+}
+
+.ratio-percentage {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  width: 50px;
+  text-align: right;
+}
+
+.funnel-breakdown {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.funnel-stage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stage-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  width: 120px;
+}
+
+.stage-track {
+  flex: 1;
+  height: 10px;
+  background-color: #f1f5f9;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.stage-fill {
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 5px;
+}
+
+.stage-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  width: 30px;
+  text-align: right;
+}

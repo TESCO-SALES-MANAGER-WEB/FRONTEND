@@ -1,0 +1,253 @@
+.date-range-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* Date range picker trigger bar styled to replace individual text/inputs */
+.picker-trigger-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s;
+}
+
+.picker-trigger-bar:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+
+.trigger-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.trigger-value {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.trigger-calendar-icon {
+  color: #64748b;
+  margin-left: 4px;
+}
+
+/* Dropdown Card overlay matching screenshot layout */
+.picker-dropdown-overlay {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  overflow: hidden;
+  font-family: inherit;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sidebar Options presets on Left side */
+.picker-presets-sidebar {
+  width: 130px;
+  background-color: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 6px;
+  gap: 4px;
+}
+
+.preset-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-item:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+.preset-item.active {
+  background-color: #ede9fe; /* light indigo */
+  color: #312e81; /* bold indigo */
+}
+
+/* Calendar month panel on Right side */
+.picker-calendar-view {
+  padding: 16px;
+  width: 270px;
+  display: flex;
+  flex-direction: column;
+}
+
+.picker-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.month-year-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.month-nav-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.month-nav-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Calendar grid layout */
+.picker-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 2px;
+  column-gap: 2px;
+  margin-bottom: 12px;
+}
+
+.day-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* Individual Calendar Day cells */
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.calendar-day:not(.empty):hover {
+  background-color: #f1f5f9;
+}
+
+.calendar-day.empty {
+  cursor: default;
+}
+
+/* Range Shading corresponding to mockup */
+.calendar-day.in-range {
+  background-color: #eff6ff !important;
+  color: #2563eb;
+  border-radius: 0;
+}
+
+/* Start Date pill styling */
+.calendar-day.range-start {
+  background-color: #312e81 !important;
+  color: white !important;
+  font-weight: 700;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* End Date pill styling */
+.calendar-day.range-end {
+  background-color: #312e81 !important;
+  color: white !important;
+  font-weight: 700;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* Border outline container for today's date marker (matching "2" in screenshot) */
+.calendar-day.today-marker {
+  border: 1.5px solid #312e81;
+  background-color: white;
+  color: #312e81;
+  font-weight: 700;
+}
+
+/* Cancel and Apply button layout at bottom of picker dropdown */
+.picker-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.picker-cancel-btn {
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.picker-cancel-btn:hover {
+  background-color: #f8fafc;
+}
+
+.picker-apply-btn {
+  background-color: #312e81;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.picker-apply-btn:hover {
+  background-color: #1e1b4b;
+}

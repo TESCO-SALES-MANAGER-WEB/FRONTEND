@@ -1,0 +1,91 @@
+.settings-page {
+  padding: 24px 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.settings-container-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.settings-box {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.settings-box .panel-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-preference-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-preference-item:last-child {
+  border-bottom: none;
+}
+
+.settings-preference-item h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.settings-preference-item p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Apple iOS-style Toggle Switch */
+.ios-switch {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background-color: #cbd5e1;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s;
+}
+
+.ios-switch:checked {
+  background-color: var(--primary-color);
+}
+
+.ios-switch::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.ios-switch:checked::before {
+  transform: translateX(20px);
+}

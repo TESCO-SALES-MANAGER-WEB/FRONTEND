@@ -1,0 +1,75 @@
+.orders-confirmations-page {
+  padding: 24px 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.orders-workspace {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-top: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.search-and-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.orders-table th {
+  background: #f8fafc;
+  padding: 16px 24px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.orders-table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.order-id-text {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.order-value-text {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.order-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.order-status-confirmed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.order-status-production {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.order-status-delivered {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.order-status-draft {
+  background-color: #fef3c7;
+  color: #b45309;
+}

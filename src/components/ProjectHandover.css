@@ -1,0 +1,127 @@
+.project-handover-page {
+  padding: 24px 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.handovers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.handover-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.handover-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.handover-card-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.project-name {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.warranty-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.warranty-badge.status-active5year {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.warranty-badge.status-pendingsignoff {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.warranty-badge.status-notstarted {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.handover-date-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #475569;
+  margin-bottom: 20px;
+}
+
+.checklist-section h4 {
+  font-size: 13px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px 0;
+}
+
+.checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.checklist-item span.checked {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.icon-checked {
+  color: var(--primary-color);
+}
+
+.handover-card-footer {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.handover-btn-icon {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
