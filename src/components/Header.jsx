@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Bell, X, User, Menu } from 'lucide-react';
 import './Header.css';
-import { leadsApi, quotationsApi, appointmentsApi } from '../api/client';
+import { notificationsApi, clearSession } from '../api/client';
 
 const timeAgo = (date) => {
   if (!date) return '';
@@ -24,51 +24,52 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
   const managerName = (typeof localStorage !== 'undefined' && (localStorage.getItem('mgr_display_name') || localStorage.getItem('mgr_name'))) || 'Manager';
   const initials = managerName.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'M';
 
-  // Unread tracking for the bell badge (shared key with the Notifications page)
-  const NOTIF_READ_KEY = 'mgr_notif_read';
-  const loadReadSet = () => { try { return new Set(JSON.parse(localStorage.getItem(NOTIF_READ_KEY) || '[]')); } catch { return new Set(); } };
-  const [readSet, setReadSet] = useState(loadReadSet);
-
-  // Real bell notifications scoped to the logged-in manager
+  // Real, DB-backed notifications scoped to the logged-in manager (recipientName = mgr_name).
+  const recipient = (typeof localStorage !== 'undefined' && localStorage.getItem('mgr_name')) || '';
   const [notifs, setNotifs] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const load = useCallback(async () => {
+    if (!recipient) return;
+    try {
+      const data = await notificationsApi.getNotifications(recipient);
+      setNotifs(Array.isArray(data?.notifications) ? data.notifications : []);
+      setUnreadCount(Number(data?.unreadCount) || 0);
+    } catch {
+      /* leave last-known state on transient errors */
+    }
+  }, [recipient]);
+
+  // Fetch on mount and poll every 30s for near-real-time bell updates.
   useEffect(() => {
-    const mgrName = (localStorage.getItem('mgr_name') || '').trim();
-    const build = () => Promise.all([
-      leadsApi.list().catch(() => []),
-      quotationsApi.list().catch(() => []),
-      appointmentsApi.list().catch(() => []),
-    ]).then(([leads, quotes, appts]) => {
-      const items = [];
-      const myLeads = (Array.isArray(leads) ? leads : []).filter((l) => (l.manager || '').trim() === mgrName);
-      const myLeadIds = new Set(myLeads.map((l) => l.id));
-      myLeads.forEach((l) => items.push({ id: `lead-${l.id}`, bg: '#eff6ff', text: `Lead assigned to you: ${l.name || l.id} — ${l.status || 'New'}`, sortDate: l.updatedAt || l.createdAt }));
-      (Array.isArray(appts) ? appts : []).filter((a) => (a.manager || '').trim() === mgrName && a.rescheduledAt)
-        .forEach((a) => items.push({ id: `resched-${a._id || a.id}`, bg: '#fff7ed', text: `Visit rescheduled: ${a.title || 'Visit'} → ${a.date}${a.timeStart ? ' ' + a.timeStart : ''}`, sortDate: a.rescheduledAt }));
-      (Array.isArray(appts) ? appts : []).filter((a) => (a.manager || '').trim() === mgrName && a.status !== 'Completed' && a.status !== 'Cancelled' && !a.cancelledAt)
-        .forEach((a) => items.push({ id: `appt-${a._id || a.id}`, bg: '#f0fdf4', text: `New appointment assigned: ${a.title || 'Appointment'} on ${a.date || ''}`, sortDate: a.createdAt || a.date }));
-      (Array.isArray(appts) ? appts : []).filter((a) => (a.manager || '').trim() === mgrName && (a.status === 'Cancelled' || a.cancelledAt))
-        .forEach((a) => items.push({ id: `cancel-${a._id || a.id}-${a.cancelledAt || ''}`, bg: '#fef2f2', text: `Appointment cancelled: ${a.title || 'Appointment'}`, sortDate: a.cancelledAt || a.date }));
-      (Array.isArray(quotes) ? quotes : []).filter((q) => myLeadIds.has(q.leadId) && q.approvalStatus === 'Pending')
-        .forEach((q) => items.push({ id: `quote-${q.id}`, bg: '#eef2ff', text: `Quotation ${q.id} pending approval`, sortDate: q.updatedAt || q.createdAt }));
-      items.sort((a, b) => new Date(b.sortDate || 0) - new Date(a.sortDate || 0));
-      setNotifs(items.slice(0, 12));
-    });
-    build();
-    const iv = setInterval(build, 15000); // real-time bell badge updates
+    load();
+    const iv = setInterval(load, 30000);
     return () => clearInterval(iv);
-  }, []);
+  }, [load]);
 
-  const unreadCount = notifs.filter((n) => !readSet.has(n.id)).length;
+  const toggleNotif = () => setIsNotifOpen((o) => !o);
 
-  // Opening the bell marks everything shown as read → the badge clears
-  const toggleNotif = () => {
-    const willOpen = !isNotifOpen;
-    setIsNotifOpen(willOpen);
-    if (willOpen && notifs.length) {
-      const s = new Set(readSet);
-      notifs.forEach((n) => s.add(n.id));
-      localStorage.setItem(NOTIF_READ_KEY, JSON.stringify([...s]));
-      setReadSet(s);
+  // Mark a single notification read — optimistic UI + persisted via PATCH.
+  const markRead = async (n) => {
+    if (!n || n.isRead) return;
+    setNotifs((prev) => prev.map((x) => (x._id === n._id ? { ...x, isRead: true } : x)));
+    setUnreadCount((c) => Math.max(0, c - 1));
+    try {
+      await notificationsApi.markRead(n._id, recipient);
+    } catch {
+      load();
+    }
+  };
+
+  // Mark all read — zero the badge immediately, persist via PATCH read-all.
+  const markAllRead = async () => {
+    if (unreadCount === 0) return;
+    setNotifs((prev) => prev.map((x) => ({ ...x, isRead: true })));
+    setUnreadCount(0);
+    try {
+      await notificationsApi.markAllRead(recipient);
+    } catch {
+      load();
     }
   };
 
@@ -181,19 +182,42 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
                 overflowY: 'auto'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Notifications</h4>
-                  <button onClick={() => setIsNotifOpen(false)} style={{ color: '#94a3b8', cursor: 'pointer' }}><X size={16}/></button>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Notifications{unreadCount > 0 ? ` (${unreadCount})` : ''}</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Mark all as read</button>
+                    )}
+                    <button onClick={() => setIsNotifOpen(false)} style={{ color: '#94a3b8', cursor: 'pointer' }}><X size={16}/></button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {notifs.length === 0 ? (
                     <div style={{ padding: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>You're all caught up.</div>
                   ) : (
-                    notifs.map((n) => (
-                      <div key={n.id} style={{ padding: '8px', borderRadius: '8px', background: n.bg, fontSize: '12px' }}>
-                        {n.text}
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>{timeAgo(n.sortDate)}</div>
-                      </div>
-                    ))
+                    notifs.map((n) => {
+                      const unread = !n.isRead;
+                      return (
+                        <div
+                          key={n._id}
+                          onClick={() => markRead(n)}
+                          style={{ padding: '8px 10px', borderRadius: '8px', background: unread ? '#f5f8ff' : '#ffffff', borderLeft: unread ? '3px solid #4f46e5' : '3px solid transparent', fontSize: '12px', cursor: unread ? 'pointer' : 'default' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', marginTop: 5, flexShrink: 0, background: unread ? '#4f46e5' : 'transparent' }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: unread ? 700 : 500, color: unread ? '#0f172a' : '#475569' }}>{n.title}</div>
+                              <div style={{ color: unread ? '#334155' : '#64748b', marginTop: '2px' }}>{n.message}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                <span style={{ fontSize: '10px', color: '#94a3b8' }}>{timeAgo(n.eventAt || n.createdAt)}</span>
+                                {unread && (
+                                  <button onClick={(e) => { e.stopPropagation(); markRead(n); }} style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '10.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Mark as read</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -258,12 +282,9 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
                 <button
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
-                    // Manager app has no login of its own — log out back to the Coordinator login
-                    try { localStorage.clear(); } catch { /* ignore */ }
-                    const loginUrl =
-                      import.meta.env.VITE_COORDINATOR_LOGIN_URL ||
-                      'http://localhost:5173/login?loggedout=1';
-                    window.location.href = loginUrl;
+                    // Log out of THIS app's own Manager login and return to it.
+                    try { clearSession(); } catch { /* ignore */ }
+                    window.location.href = `${window.location.pathname}?loggedout=1`;
                   }}
                   style={{
                     width: '100%',

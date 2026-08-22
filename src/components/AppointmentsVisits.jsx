@@ -76,6 +76,11 @@ const apptToApi = (m) => ({
   startedAt: m.startedAt || '',
   startedBy: m.startedBy || '',
   measurementNote: m.measurementNote || '',
+  // These were previously omitted from the outbound payload, so the manager's uploaded
+  // site/measurement photos never reached the shared DB — the Coordinator and Sales Head
+  // apps therefore had no image to show. Send them (base64 data URLs) so they persist.
+  measurementImage: m.measurementImage || null,
+  siteImage: m.siteImage || null,
   meetingRemarks: m.meetingRemarks || '',
   designRequest: m.designRequest || 'None',
   rescheduledAt: m.rescheduledAt || '',
@@ -287,16 +292,56 @@ const AppointmentsVisits = () => {
     setStartTime(getCurrentTime24());
   };
 
-  // Image upload handling
-  const handleMeasurementUpload = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setMeasurementImage(URL.createObjectURL(e.target.files[0]));
+  // Image upload handling.
+  // IMPORTANT: store the picture as a self-contained base64 data URL (downscaled) — NOT a
+  // blob: object URL. A blob: URL only lives in THIS browser's memory, so it saves as a dead
+  // link that the Coordinator and Sales Head apps (different browsers/sessions) can't load.
+  // A data URL is embedded in the record and renders anywhere the appointment is viewed.
+  const fileToDataUrl = (file, maxDim = 1600, quality = 0.8) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        const raw = reader.result;
+        const img = new Image();
+        img.onerror = () => resolve(raw); // fall back to the raw data URL
+        img.onload = () => {
+          try {
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          } catch {
+            resolve(raw);
+          }
+        };
+        img.src = raw;
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const handleMeasurementUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      setMeasurementImage(await fileToDataUrl(file));
+    } catch {
+      notify('Could not read that image. Please try another file.', 'warning');
     }
   };
 
-  const handleSiteImageUpload = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setSiteImage(URL.createObjectURL(e.target.files[0]));
+  const handleSiteImageUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      setSiteImage(await fileToDataUrl(file));
+    } catch {
+      notify('Could not read that image. Please try another file.', 'warning');
     }
   };
 
