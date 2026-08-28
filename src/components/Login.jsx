@@ -235,7 +235,7 @@ export default function Login({ onAuthenticated }) {
                       </label>
                       <a href="#forgot" onClick={(e) => { e.preventDefault(); setShowForgotInfo(true); }} style={linkStyle}>Forgot Password?</a>
                     </div>
-                    <button type="submit" style={btnStyle} onMouseEnter={btnOver} onMouseLeave={btnOut}>Login to Dashboard</button>
+                    <button type="submit" disabled={!email || !password} style={{ ...btnStyle, ...((!email || !password) ? { opacity: 0.55, cursor: 'not-allowed' } : {}) }} onMouseEnter={btnOver} onMouseLeave={btnOut}>Login to Dashboard</button>
                   </form>
                 </>
               )}

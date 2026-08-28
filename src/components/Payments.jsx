@@ -118,7 +118,7 @@ const KpiCard = ({ value, title, icon: Icon, color }) => (
 const emptyForm = {
   id: '', leadId: '', customer: '', orderValue: '', amountCollected: '',
   pendingPayments: '', upcomingDues: '', overduePayments: '', invoiceValue: '', dueDate: '',
-  method: 'Bank Transfer', transactionId: '', paymentDate: '', notes: '', manager: '',
+  method: 'Bank Transfer', transactionId: '', cashPaidBy: '', paymentDate: '', notes: '', manager: '',
 };
 
 const Payments = () => {
@@ -151,7 +151,7 @@ const Payments = () => {
   // ── Load live payments (stored in MongoDB) ──
   const loadPayments = () => {
     return paymentsApi.list()
-      .then((data) => { if (Array.isArray(data)) setPayments(data); })
+      .then((data) => { if (Array.isArray(data)) setPayments([...data].sort((a, b) => new Date(b.createdAt || b.paymentDate || b.dueDate || 0) - new Date(a.createdAt || a.paymentDate || a.dueDate || 0))); })
       .catch((err) => console.error('Failed to load payments:', err))
       .finally(() => setLoaded(true));
   };
@@ -248,6 +248,7 @@ const Payments = () => {
     invoiceValue: parseAmount(form.invoiceValue),
     method: form.method || '',
     transactionId: (form.transactionId || '').trim(),
+    cashPaidBy: form.method === 'Cash' ? (form.cashPaidBy || '').trim() : '',
     paymentDate: form.paymentDate || '',
     // keep the table's Due Date column populated from the payment date when not set separately
     dueDate: form.dueDate || form.paymentDate || '',
@@ -393,6 +394,7 @@ const Payments = () => {
       invoiceValue: parseAmount(drawerForm.invoiceValue),
       dueDate: drawerForm.dueDate || '',
       method: drawerForm.method || '',
+      cashPaidBy: drawerForm.method === 'Cash' ? (drawerForm.cashPaidBy || '').trim() : '',
       status: drawerForm.status || '',
       clientName: (drawerForm.clientName || '').trim(),
       projectLocation: (drawerForm.projectLocation || '').trim(),
@@ -472,6 +474,7 @@ const Payments = () => {
       row('Overdue Payments', money(d.overduePayments)),
       row('Due Date', d.dueDate ? fmtAny(d.dueDate) : '—'),
       row('Payment Method', d.method),
+      ...(d.method === 'Cash' ? [row('Cash Paid By', d.cashPaidBy)] : []),
       row('Status', st),
     ].join('');
     const billing = [
@@ -750,6 +753,11 @@ const Payments = () => {
                   </div>
                   <div><label style={labelStyle}>Transaction ID / Cheque No.</label><input value={form.transactionId} onChange={(e) => setForm({ ...form, transactionId: e.target.value })} disabled={readOnly} type="text" placeholder="e.g. TXN123456 / 004521" style={inputStyle} /></div>
                 </div>
+                {form.method === 'Cash' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.1rem' }}>
+                    <div><label style={labelStyle}>Cash Received From (Paid By)</label><input value={form.cashPaidBy} onChange={(e) => setForm({ ...form, cashPaidBy: e.target.value })} disabled={readOnly} type="text" placeholder="Name of the person who paid the cash" style={inputStyle} /></div>
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
                   <div><label style={labelStyle}>Payment Date</label><input value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} disabled={readOnly} type="date" style={inputStyle} /></div>
                   <div><label style={labelStyle}>Due Date</label><input value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} disabled={readOnly} type="date" style={inputStyle} /></div>

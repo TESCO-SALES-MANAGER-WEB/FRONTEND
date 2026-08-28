@@ -47,7 +47,8 @@ const Quotations = () => {
         const myLeadIds = new Set(myLeadsArr.map((l) => l.id));
         const mine = (Array.isArray(quotes) ? quotes : [])
           .filter((q) => myLeadIds.has(q.leadId))
-          .map(quoteFromApi);
+          .map(quoteFromApi)
+          .sort((a, b) => (b.id || 0) - (a.id || 0)); // newest first
         setQuotesList(mine);
       })
       .catch((e) => console.error('Failed to load quotations:', e));
@@ -108,9 +109,18 @@ const Quotations = () => {
     const lead = eligibleLeads.find((l) => l.id === val) || allLeads.find((l) => l.id === val) || myLeads.find((l) => l.id === val);
     setForm((f) => ({ ...f, leadId: val, customer: lead?.name || f.customer, project: lead?.projectType || lead?.services || f.project }));
   };
+  // Only PDF quotations are accepted — an image (or any non-PDF) can never be used to
+  // bypass the Sales Head's approval.
+  const isPdfFile = (file) => file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
   const onFilePick = (e) => {
     const file = e.target.files[0];
     if (!file) { setForm((f) => ({ ...f, fileName: null, fileData: null })); return; }
+    if (!isPdfFile(file)) {
+      notify('Only PDF files are allowed. Please upload the quotation as a PDF.', 'error');
+      e.target.value = '';
+      setForm((f) => ({ ...f, fileName: null, fileData: null }));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => { const tooBig = file.size > 5 * 1024 * 1024; setForm((f) => ({ ...f, fileName: file.name, fileData: tooBig ? null : reader.result })); };
     reader.readAsDataURL(file);
@@ -126,6 +136,11 @@ const Quotations = () => {
     const active = leadActiveQuote(form.leadId);
     if (active) {
       notify(`This lead already has a ${String(active.approvals).toLowerCase()} quotation. A new one is allowed only after it is rejected.`, 'warning');
+      return;
+    }
+    // PDF is mandatory — a quotation cannot be created without a PDF document.
+    if (!form.fileName) {
+      notify('A PDF quotation file is required before uploading.', 'warning');
       return;
     }
     const qid = `QT-${Date.now()}`;
@@ -221,21 +236,16 @@ const Quotations = () => {
       .catch((e) => console.error('Failed to move lead to Order Confirmation stage:', e));
   };
 
-  // Transition: null -> Pending (In progress) -> Approved after 2s delay (persisted to backend)
+  // Request approval: null -> Pending. The quotation now awaits the Sales Head's decision.
+  // It is NEVER auto-approved here — only the Sales Head can approve it.
   const handleRequestClick = (id) => {
     const quote = quotesList.find(q => q.id === id);
     if (!quote || quote.approvals) return;
     if (!quote.qid) { notify('Cannot save to server: this quotation has no backend ID.', 'error'); return; }
     setQuotesList(prev => prev.map(q => (q.id === id ? { ...q, approvals: 'Pending' } : q)));
-    quotationsApi.update(quote.qid, { approvalStatus: 'Pending' })
+    quotationsApi.update(quote.qid, { approvalStatus: 'Pending', quotationStatus: 'Prepared' })
+      .then(() => notify('Approval requested — awaiting Sales Head approval.', 'info'))
       .catch(e => { console.error(e); notify('Failed to save approval request to the server.', 'error'); });
-    setTimeout(() => {
-      setQuotesList(current => current.map(item => (item.id === id ? { ...item, approvals: 'Approved' } : item)));
-      quotationsApi.update(quote.qid, { approvalStatus: 'Approved' })
-        .catch(e => { console.error(e); notify('Failed to save approval to the server.', 'error'); });
-      // Approved → lock this lead's quotation and advance it to Order Confirmation.
-      moveLeadToOrderConfirmation(quote.leadId);
-    }, 2000);
   };
 
   // Download Click
@@ -261,10 +271,14 @@ const Quotations = () => {
     }
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg';
+    fileInput.accept = 'application/pdf,.pdf';
     fileInput.onchange = (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isPdfFile(file)) {
+          notify('Only PDF files are allowed. Please upload the quotation as a PDF.', 'error');
+          return;
+        }
         const quote = quotesList.find(q => q.id === id);
         // Read the file as a base64 data URI so the Sales Head can preview/download it.
         // Skip very large files to keep the payload reasonable (name is still saved).
@@ -272,15 +286,16 @@ const Quotations = () => {
         reader.onload = () => {
           const tooBig = file.size > 3 * 1024 * 1024;
           const fileData = (!tooBig && typeof reader.result === 'string') ? reader.result : null;
+          // Uploading a document does NOT approve it. Approval is the Sales Head's decision,
+          // so the quotation is marked Prepared + Pending and enters the Head's approval queue.
+          const nextApproval = quote?.approvals === 'Approved' ? 'Approved' : 'Pending';
           setQuotesList(prev => prev.map(q => (
-            q.id === id ? { ...q, uploadedFileName: file.name, fileData, approvals: 'Approved' } : q
+            q.id === id ? { ...q, uploadedFileName: file.name, fileData, approvals: nextApproval } : q
           )));
           if (quote?.qid) {
-            quotationsApi.update(quote.qid, { fileName: file.name, fileData, approvalStatus: 'Approved' })
-              .then(() => notify(`Quotation "${file.name}" saved for ${quote?.customerName || 'customer'}`, 'success'))
+            quotationsApi.update(quote.qid, { fileName: file.name, fileData, approvalStatus: nextApproval, quotationStatus: 'Prepared' })
+              .then(() => notify(`Quotation "${file.name}" uploaded — awaiting Sales Head approval.`, 'success'))
               .catch(err => { console.error(err); notify('Uploaded locally, but saving to the server failed. Please retry.', 'error'); });
-            // Approved → lock this lead's quotation and advance it to Order Confirmation.
-            moveLeadToOrderConfirmation(quote.leadId);
           } else {
             notify('Cannot save to server: this quotation has no backend ID.', 'error');
           }
@@ -488,7 +503,7 @@ const Quotations = () => {
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>Quotation PDF</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.7rem 0.9rem', borderRadius: 8, border: '1px dashed #cbd5e1', background: form.fileName ? '#ecfdf5' : '#f8fafc', color: form.fileName ? '#059669' : '#4f46e5', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
                   <FileUp size={16} /> {form.fileName || 'Choose PDF to upload'}
-                  <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" onChange={onFilePick} style={{ display: 'none' }} />
+                  <input type="file" accept="application/pdf,.pdf" onChange={onFilePick} style={{ display: 'none' }} />
                 </label>
               </div>
             </div>

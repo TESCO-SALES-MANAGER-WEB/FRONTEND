@@ -163,8 +163,10 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   }, [openAddSignal]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFrom, setDateFrom] = useState('03/05/2026');
-  const [dateTo, setDateTo] = useState('02/06/2026');
+  const _dmy = (dt) => `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+  const _agoDmy = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return _dmy(d); };
+  const [dateFrom, setDateFrom] = useState(_agoDmy(30));
+  const [dateTo, setDateTo] = useState(_dmy(new Date()));
   const [activeHistoryLead, setActiveHistoryLead] = useState(null);
   const [serviceFilter, setServiceFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
@@ -980,18 +982,43 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const junkLeads = leadsData.filter(l => l.status === 'JUNK').length;
   const lostDealLeads = leadsData.filter(l => l.status === 'LOST').length;
 
+  // Parse a "DD/MM/YYYY" (or ISO) string to a Date for range comparison
+  const _parseRangeDate = (str) => {
+    if (!str) return null;
+    const s = String(str).trim();
+    if (s.includes('/')) { const [d, m, y] = s.split('/'); return new Date(+y, +m - 1, +d); }
+    const dt = new Date(s); return isNaN(dt.getTime()) ? null : dt;
+  };
+  // A lead is in range when its date falls between the picked From/To (inclusive).
+  const inSelectedRange = (v) => {
+    const d = v ? new Date(v) : null;
+    if (!d || isNaN(d.getTime())) return true; // undated leads are never hidden
+    const from = _parseRangeDate(dateFrom);
+    const to = _parseRangeDate(dateTo);
+    if (from) { from.setHours(0, 0, 0, 0); if (d < from) return false; }
+    if (to) { to.setHours(23, 59, 59, 999); if (d > to) return false; }
+    return true;
+  };
+
   const filteredLeads = leadsData.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.leadId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.services.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.phone.includes(searchQuery);
-      
+
     const matchesService = serviceFilter === 'All' || lead.services === serviceFilter;
     const matchesSource = sourceFilter === 'All' || lead.source === sourceFilter;
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
     const matchesAssignee = assigneeFilter === 'All' || lead.assignTo === assigneeFilter;
-    
-    return matchesSearch && matchesService && matchesSource && matchesStatus && matchesAssignee;
+    const matchesDate = inSelectedRange(lead.date || lead.createdAt);
+
+    return matchesSearch && matchesService && matchesSource && matchesStatus && matchesAssignee && matchesDate;
+  }).sort((a, b) => {
+    // Newest first — by date, then by lead id as a tie-breaker
+    const da = new Date(a.date || a.createdAt || 0).getTime();
+    const db = new Date(b.date || b.createdAt || 0).getTime();
+    if (!isNaN(da) && !isNaN(db) && da !== db) return db - da;
+    return String(b.leadId || '').localeCompare(String(a.leadId || ''), undefined, { numeric: true });
   });
 
   return (

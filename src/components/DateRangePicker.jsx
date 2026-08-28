@@ -28,7 +28,7 @@ const DateRangePicker = ({ fromDate, toDate, onApply }) => {
 
   const [startDate, setStartDate] = useState(parseDateString(fromDate));
   const [endDate, setEndDate] = useState(parseDateString(toDate));
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 5, 1)); // Default June 2026 as per screenshot
+  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); // Default to the current month
   const [activePreset, setActivePreset] = useState('Last 30 Days');
   const [hoverDate, setHoverDate] = useState(null);
 
@@ -51,7 +51,7 @@ const DateRangePicker = ({ fromDate, toDate, onApply }) => {
 
   const handlePresetClick = (preset) => {
     setActivePreset(preset);
-    const today = new Date(2026, 5, 2); // Target current date: June 2, 2026
+    const today = new Date(); today.setHours(0, 0, 0, 0); // Real current date
     let start = new Date(today);
     let end = new Date(today);
 
@@ -145,9 +145,10 @@ const DateRangePicker = ({ fromDate, toDate, onApply }) => {
       if (isEnd) classNames += ' range-end';
       if (isInRange) classNames += ' in-range';
 
-      // Highlight June 2 (Today) specifically matching the screenshot if no date selected
-      const isTodayJune2 = curDate.getDate() === 2 && curDate.getMonth() === 5 && curDate.getFullYear() === 2026;
-      if (isTodayJune2 && !isStart && !isEnd && !isInRange) {
+      // Highlight the real "today" when no date in that cell is selected
+      const _now = new Date();
+      const isToday = curDate.getDate() === _now.getDate() && curDate.getMonth() === _now.getMonth() && curDate.getFullYear() === _now.getFullYear();
+      if (isToday && !isStart && !isEnd && !isInRange) {
         classNames += ' today-marker';
       }
 

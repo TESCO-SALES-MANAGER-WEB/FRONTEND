@@ -38,8 +38,10 @@ const invoiceStatus = (q) =>
     : 'Pending';
 
 const Dashboard = ({ setActivePage }) => {
-  const [fromDate, setFromDate] = useState('2026-05-02');
-  const [toDate, setToDate] = useState('2026-06-01');
+  const _isoD = (d) => d.toISOString().split('T')[0];
+  const _agoD = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
+  const [fromDate, setFromDate] = useState(_isoD(_agoD(30)));
+  const [toDate, setToDate] = useState(_isoD(new Date()));
   const [, setCalendarFilter] = useState('June');
 
   const [leads, setLeads] = useState([]);
@@ -66,10 +68,12 @@ const Dashboard = ({ setActivePage }) => {
   // ── Scope everything to the logged-in manager's own data ──
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
   const mgrKey = mgrName.toLowerCase();
-  const myAppts = appointments.filter((a) => (a.manager || '').trim().toLowerCase() === mgrKey);
-  const myLeads = leads.filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey);
+  const _din = (v) => { if (!v) return ''; const dt = new Date(v); return isNaN(dt.getTime()) ? String(v).slice(0, 10) : dt.toISOString().split('T')[0]; };
+  const inDate = (v) => { const f = _din(v); if (!f) return true; return (!fromDate || f >= fromDate) && (!toDate || f <= toDate); };
+  const myAppts = appointments.filter((a) => (a.manager || '').trim().toLowerCase() === mgrKey && inDate(a.date || a.createdAt));
+  const myLeads = leads.filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey && inDate(l.date || l.createdAt));
   const myLeadIds = new Set(myLeads.map((l) => l.id));
-  const myQuotes = quotes.filter((q) => myLeadIds.has(q.leadId));
+  const myQuotes = quotes.filter((q) => myLeadIds.has(q.leadId) && inDate(q.date || q.createdAt));
 
   const todayStr = new Date().toISOString().split('T')[0];
   const nowMs = Date.now();
@@ -100,8 +104,8 @@ const Dashboard = ({ setActivePage }) => {
   // ── Order Confirmation / Sales Pipeline metrics ──
   // Access control: count only THIS manager's order confirmations (by salesperson/manager or lead).
   const myProjects = projects.filter((p) =>
-    [p.manager, p.salesperson, p.salespersonName].some((v) => (v || '').trim().toLowerCase() === mgrKey) ||
-    (p.leadId && myLeadIds.has(p.leadId))
+    ([p.manager, p.salesperson, p.salespersonName].some((v) => (v || '').trim().toLowerCase() === mgrKey) ||
+    (p.leadId && myLeadIds.has(p.leadId))) && inDate(p.date || p.createdAt)
   );
   const orderConfirmationDocs = myProjects.length;
 
@@ -111,7 +115,7 @@ const Dashboard = ({ setActivePage }) => {
     .filter((l) => parseAmount(l.budget) > 0 && !statusHas(l, 'junk'))
     .map((l) => ({ id: `OP-${parseInt(String(l.id || '').replace(/\D/g, '')) || l.id}`, leadId: l.id, value: parseAmount(l.budget) }));
   const myPipeDocs = pipeline.filter((p) =>
-    (p.manager || '').trim().toLowerCase() === mgrKey || (p.leadId && myLeadIds.has(p.leadId))
+    ((p.manager || '').trim().toLowerCase() === mgrKey || (p.leadId && myLeadIds.has(p.leadId))) && inDate(p.date || p.createdAt)
   );
   const pipeDocIds = new Set(myPipeDocs.map((p) => p.id));
   const pipeDocLeadIds = new Set(myPipeDocs.map((p) => p.leadId).filter(Boolean));
@@ -127,7 +131,7 @@ const Dashboard = ({ setActivePage }) => {
 
   // ── Payment Collection metrics — SAME real payments collection as the page ──
   const myPayments = payments.filter((p) =>
-    (p.manager || '').trim().toLowerCase() === mgrKey || (p.leadId && myLeadIds.has(p.leadId))
+    ((p.manager || '').trim().toLowerCase() === mgrKey || (p.leadId && myLeadIds.has(p.leadId))) && inDate(p.date || p.createdAt)
   );
   const sumPay = (key) => myPayments.reduce((s, p) => s + (Number(p[key]) || 0), 0);
   const totalCollected = sumPay('amountCollected');
