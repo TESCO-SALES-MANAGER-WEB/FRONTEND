@@ -63,7 +63,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
   // Load this manager's leads so every lead with a Project Value shows up automatically.
   const [leads, setLeads] = useState([]);
   useEffect(() => {
-    leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads(d); }).catch((e) => console.error('Failed to load leads:', e));
+    leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads([...d].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0))); }).catch((e) => console.error('Failed to load leads:', e));
   }, []);
 
   const mgrKey = mgrName.toLowerCase();

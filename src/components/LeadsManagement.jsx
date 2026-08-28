@@ -51,6 +51,8 @@ const statusFromApi = (s) => {
 const leadFromApi = (l) => ({
   id: parseInt(String(l.id || '').replace(/\D/g, '')) || Math.floor(Math.random() * 1e9),
   leadId: l.id,
+  createdAt: l.createdAt || '',
+  updatedAt: l.updatedAt || '',
   date: l.date || '',
   name: l.name || '',
   company: l.company || '',
@@ -963,25 +965,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     setDeleteTarget(null);
   };
 
-  // Card calculation
-  const totalLeads = leadsData.length;
-  const newLeads = leadsData.filter(l => l.status === 'NEW').length;
-  const hotLeads = leadsData.filter(l => l.status === 'HOT').length;
-  const warmLeads = leadsData.filter(l => l.status === 'WARM').length;
-  const coldLeads = leadsData.filter(l => l.status === 'COLD').length;
-  // ── Record-based counts (match the Manager Dashboard) ──
-  // Appt. Fixed = this manager's scheduled appointments (site visits excluded)
-  const myApptRecords = apptRecords.filter(a => (a.manager || '').trim().toLowerCase() === mgrKey);
-  const apptFixedLeads = myApptRecords.filter(a => a.type !== 'Visits').length;
-  // Quotation Sent = quotations raised against this manager's own leads
-  const myLeadIdSet = new Set(leadsData.map(l => l.leadId));
-  const quotationSendLeads = quoteRecords.filter(q => myLeadIdSet.has(q.leadId)).length;
-  const negotiationLeads = leadsData.filter(l => l.status === 'NEGOTIATION').length;
-  // Order Confirmed = real Order Confirmation handover documents
-  const orderConfirmedLeads = projectRecords.length;
-  const junkLeads = leadsData.filter(l => l.status === 'JUNK').length;
-  const lostDealLeads = leadsData.filter(l => l.status === 'LOST').length;
-
   // Parse a "DD/MM/YYYY" (or ISO) string to a Date for range comparison
   const _parseRangeDate = (str) => {
     if (!str) return null;
@@ -989,16 +972,36 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     if (s.includes('/')) { const [d, m, y] = s.split('/'); return new Date(+y, +m - 1, +d); }
     const dt = new Date(s); return isNaN(dt.getTime()) ? null : dt;
   };
-  // A lead is in range when its date falls between the picked From/To (inclusive).
+  // A record is in range when its date falls between the picked From/To (inclusive).
   const inSelectedRange = (v) => {
     const d = v ? new Date(v) : null;
-    if (!d || isNaN(d.getTime())) return true; // undated leads are never hidden
+    if (!d || isNaN(d.getTime())) return true; // undated records are never hidden
     const from = _parseRangeDate(dateFrom);
     const to = _parseRangeDate(dateTo);
     if (from) { from.setHours(0, 0, 0, 0); if (d < from) return false; }
     if (to) { to.setHours(23, 59, 59, 999); if (d > to) return false; }
     return true;
   };
+
+  // Card calculation — scoped to the chosen calendar range so the KPI numbers match the table.
+  const rangeLeads = leadsData.filter(l => inSelectedRange(l.date || l.createdAt));
+  const totalLeads = rangeLeads.length;
+  const newLeads = rangeLeads.filter(l => l.status === 'NEW').length;
+  const hotLeads = rangeLeads.filter(l => l.status === 'HOT').length;
+  const warmLeads = rangeLeads.filter(l => l.status === 'WARM').length;
+  const coldLeads = rangeLeads.filter(l => l.status === 'COLD').length;
+  // ── Record-based counts (match the Manager Dashboard) ──
+  // Appt. Fixed = this manager's scheduled appointments (site visits excluded)
+  const myApptRecords = apptRecords.filter(a => (a.manager || '').trim().toLowerCase() === mgrKey);
+  const apptFixedLeads = myApptRecords.filter(a => a.type !== 'Visits' && inSelectedRange(a.date || a.createdAt)).length;
+  // Quotation Sent = quotations raised against this manager's own leads
+  const myLeadIdSet = new Set(rangeLeads.map(l => l.leadId));
+  const quotationSendLeads = quoteRecords.filter(q => myLeadIdSet.has(q.leadId) && inSelectedRange(q.date || q.createdAt)).length;
+  const negotiationLeads = rangeLeads.filter(l => l.status === 'NEGOTIATION').length;
+  // Order Confirmed = real Order Confirmation handover documents
+  const orderConfirmedLeads = projectRecords.filter(p => inSelectedRange(p.date || p.createdAt)).length;
+  const junkLeads = rangeLeads.filter(l => l.status === 'JUNK').length;
+  const lostDealLeads = rangeLeads.filter(l => l.status === 'LOST').length;
 
   const filteredLeads = leadsData.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1014,11 +1017,10 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
     return matchesSearch && matchesService && matchesSource && matchesStatus && matchesAssignee && matchesDate;
   }).sort((a, b) => {
-    // Newest first — by date, then by lead id as a tie-breaker
-    const da = new Date(a.date || a.createdAt || 0).getTime();
-    const db = new Date(b.date || b.createdAt || 0).getTime();
-    if (!isNaN(da) && !isNaN(db) && da !== db) return db - da;
-    return String(b.leadId || '').localeCompare(String(a.leadId || ''), undefined, { numeric: true });
+    // Newest first — by the real backend create/update time (never by id or name)
+    const da = new Date(a.createdAt || a.updatedAt || a.date || 0).getTime();
+    const db = new Date(b.createdAt || b.updatedAt || b.date || 0).getTime();
+    return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da);
   });
 
   return (

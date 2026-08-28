@@ -109,7 +109,7 @@ const AppointmentsVisits = () => {
     const load = () => appointmentsApi.list()
       .then((data) => {
         if (Array.isArray(data)) {
-          const mapped = data.map(apptFromApi).filter((a) => !a.cancelled);
+          const mapped = [...data].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0)).map(apptFromApi).filter((a) => !a.cancelled);
           setAllAppts(mapped);
           setAppointmentsList(mapped.filter((a) => (a.manager || '').trim().toLowerCase() === mgrKey));
         }
