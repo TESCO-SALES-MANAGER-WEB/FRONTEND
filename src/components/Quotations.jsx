@@ -10,7 +10,7 @@ import {
   FileUp
 } from 'lucide-react';
 import './Quotations.css';
-import { quotationsApi, leadsApi, appointmentsApi } from '../api/client';
+import { quotationsApi, leadsApi, appointmentsApi, api } from '../api/client';
 import { notify } from '../utils/notify';
 
 // Map the shared backend quotation onto this view's shape
@@ -248,12 +248,22 @@ const Quotations = () => {
       .catch(e => { console.error(e); notify('Failed to save approval request to the server.', 'error'); });
   };
 
+  // The list no longer ships the heavy base64 fileData — fetch it on demand for one quotation.
+  const fetchFileData = async (quote) => {
+    if (quote.fileData) return quote.fileData;
+    if (!quote.qid) return null;
+    try {
+      const full = await api(`/quotations/${quote.qid}`);
+      return full && full.fileData ? full.fileData : null;
+    } catch { return null; }
+  };
   // Download Click
-  const handleDownloadClick = (quote) => {
+  const handleDownloadClick = async (quote) => {
     // Download the actual uploaded document
-    if (quote.fileData) {
+    const fileData = quote.uploadedFileName ? await fetchFileData(quote) : null;
+    if (fileData) {
       const a = document.createElement('a');
-      a.href = quote.fileData;
+      a.href = fileData;
       a.download = quote.uploadedFileName || 'quotation';
       document.body.appendChild(a); a.click(); a.remove();
       return;

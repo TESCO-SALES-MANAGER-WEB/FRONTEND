@@ -38,7 +38,8 @@ const invoiceStatus = (q) =>
     : 'Pending';
 
 const Dashboard = ({ setActivePage }) => {
-  const _isoD = (d) => d.toISOString().split('T')[0];
+  // Local-time YYYY-MM-DD (never toISOString — that shifts to UTC and moves IST dates back a day)
+  const _isoD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const _agoD = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
   const [fromDate, setFromDate] = useState(_isoD(_agoD(30)));
   const [toDate, setToDate] = useState(_isoD(new Date()));
@@ -68,7 +69,7 @@ const Dashboard = ({ setActivePage }) => {
   // ── Scope everything to the logged-in manager's own data ──
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
   const mgrKey = mgrName.toLowerCase();
-  const _din = (v) => { if (!v) return ''; const dt = new Date(v); return isNaN(dt.getTime()) ? String(v).slice(0, 10) : dt.toISOString().split('T')[0]; };
+  const _din = (v) => { if (!v) return ''; const dt = new Date(v); return isNaN(dt.getTime()) ? String(v).slice(0, 10) : _isoD(dt); };
   const inDate = (v) => { const f = _din(v); if (!f) return true; return (!fromDate || f >= fromDate) && (!toDate || f <= toDate); };
   const myAppts = appointments.filter((a) => (a.manager || '').trim().toLowerCase() === mgrKey && inDate(a.date || a.createdAt));
   const myLeads = leads.filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey && inDate(l.date || l.createdAt));
