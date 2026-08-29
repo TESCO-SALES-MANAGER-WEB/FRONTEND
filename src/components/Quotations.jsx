@@ -32,7 +32,7 @@ const Quotations = () => {
   const [allLeads, setAllLeads] = useState([]); // every lead — used to resolve a visit's lead
   const [appts, setAppts] = useState([]); // appointments/visits — used to gate the Lead dropdown
   const [showUpload, setShowUpload] = useState(false);
-  const emptyForm = { leadId: '', customer: '', project: '', amount: '', gst: '', fileName: null, fileData: null };
+  const emptyForm = { leadId: '', customer: '', project: '', amount: '', gst: '', priority: 'Medium', fileName: null, fileData: null };
   const [form, setForm] = useState(emptyForm);
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
 
@@ -146,7 +146,7 @@ const Quotations = () => {
     const qid = `QT-${Date.now()}`;
     const amount = form.amount ? (String(form.amount).startsWith('₹') ? form.amount : `₹${form.amount}`) : '';
     const gst = form.gst ? (String(form.gst).startsWith('₹') ? form.gst : `₹${form.gst}`) : '';
-    const payload = { id: qid, leadId: form.leadId, client: form.customer, project: form.project, amount, gst, approvalStatus: 'Pending', quotationStatus: form.fileName ? 'Prepared' : 'In Preparation', revision: 'Rev 0', fileName: form.fileName, fileData: form.fileData };
+    const payload = { id: qid, leadId: form.leadId, client: form.customer, project: form.project, amount, gst, priority: form.priority || 'Medium', approvalStatus: 'Pending', quotationStatus: form.fileName ? 'Prepared' : 'In Preparation', revision: 'Rev 0', fileName: form.fileName, fileData: form.fileData };
     quotationsApi.create(payload)
       .then(() => notify('Quotation uploaded.', 'success'))
       .catch((err) => { console.error(err); notify('Uploaded locally, but saving to the server failed.', 'error'); });
@@ -508,6 +508,14 @@ const Quotations = () => {
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>GST (₹)</label>
                   <input value={form.gst} onChange={(e) => setForm((f) => ({ ...f, gst: e.target.value }))} placeholder="Optional" style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.9rem' }} />
                 </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>Priority</label>
+                <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>Quotation PDF</label>

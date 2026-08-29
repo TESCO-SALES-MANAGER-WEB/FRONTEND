@@ -94,16 +94,41 @@ const leadToApi = (m) => ({
     : [],
 });
 
-// Convert any stored follow-up value into a YYYY-MM-DD value for the date input
-const toDateInputValue = (v) => {
-  if (!v || typeof v !== 'string') return '';
+// Parse any stored follow-up value into { dPart:'YYYY-MM-DD', tPart:'HH:mm' } (tPart may be '')
+const parseFollowUp = (v) => {
+  if (!v || typeof v !== 'string') return null;
   const s = v.trim();
-  if (s === 'No Date' || s === 'Pending' || s === '') return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/(\d{2})-(\d{2})-(\d{4})/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+  if (s === 'No Date' || s === 'Pending' || s === '') return null;
+  let dPart = '', tPart = '', m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{1,2}):(\d{2})\s*([AaPp][Mm])/))) { let h = parseInt(m[4], 10); const ap = m[6].toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${String(h).padStart(2, '0')}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{2}):(\d{2})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; }
+  else { const d = new Date(s); if (!isNaN(d.getTime())) { dPart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; tPart = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } }
+  if (!dPart) return null;
+  return { dPart, tPart };
+};
+
+// Convert any stored follow-up value into a datetime-local value (YYYY-MM-DDTHH:mm)
+const toDateInputValue = (v) => {
+  const p = parseFollowUp(v);
+  if (!p) return '';
+  return `${p.dPart}T${p.tPart || '09:00'}`;
+};
+
+// Display a follow-up value as "DD-MM-YYYY, hh:mm AM/PM" (date only when no time was set)
+const fmtFollowUp = (v) => {
+  const p = parseFollowUp(v);
+  if (!p) return '';
+  const [y, mo, d] = p.dPart.split('-');
+  const dateStr = `${d}-${mo}-${y}`;
+  if (!p.tPart) return dateStr;
+  let h = parseInt(p.tPart.slice(0, 2), 10);
+  const mm = p.tPart.slice(3, 5);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${dateStr}, ${String(h).padStart(2, '0')}:${mm} ${ap}`;
 };
 
 const getTimelineEventStyle = (eventText) => {
@@ -728,9 +753,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   };
 
   // Save handler for the multi-step Add New Lead wizard (matches the Sales Coordinator CRM form)
-  const handleWizardSave = (data) => {
-    // Globally-unique id so a manager-added lead never overwrites coordinator/other-manager leads
-    const stamp = Date.now();
+  const handleWizardSave = async (data) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     const formattedDate = new Date().toLocaleDateString('en-US', options);
     const ts = `${formattedDate} - ${new Date().toLocaleTimeString()}`;
@@ -758,8 +781,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     const projectValue = data.budget || w.projectValue || '';
 
     const leadToAdd = {
-      id: stamp,
-      leadId: `LD-${stamp}`,
       date: formattedDate,
       name: data.name,
       company: data.company || '',
@@ -780,19 +801,31 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       history,
     };
 
-    setLeadsData([leadToAdd, ...leadsData]);
     setShowAddModal(false);
+
+    // Create on the server so it assigns the next sequential LD-#### id, then show it with that id.
+    let created = null;
+    try {
+      created = await leadsApi.create(leadToApi(leadToAdd));
+    } catch (err) {
+      console.error('Failed to create lead:', err);
+      notify('Could not save the lead to the server. Please try again.', 'error');
+      return;
+    }
+    const realLeadId = (created && created.id) || '';
+    const savedLead = { ...leadToAdd, id: (created && created._id) || Date.now(), leadId: realLeadId };
+    setLeadsData([savedLead, ...leadsData]);
 
     // If a Project Value was entered, also create a Sales Pipeline opportunity so it shows up there
     const valueNum = parseFloat(String(projectValue).replace(/[^0-9.]/g, ''));
-    if (valueNum > 0) {
+    if (valueNum > 0 && realLeadId) {
       const PIPE_STAGE_MAP = {
         'NEW': 'New', 'HOT': 'Hot', 'WARM': 'Warm', 'COLD': 'Cold',
         'APPT FIXED': 'Appointment Fixed', 'JUNK': 'Lost', 'LOST': 'Lost',
       };
       const opportunity = {
-        id: `OP-${stamp}`,
-        leadId: `LD-${stamp}`,
+        id: `OP-${realLeadId}`,
+        leadId: realLeadId,
         customer: data.name || 'Client',
         company: data.company || '',
         service: data.projectType || 'PEB Structure',
@@ -1413,8 +1446,9 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <input
-                        type="date"
+                        type="datetime-local"
                         className="followup-input"
+                        title={fmtFollowUp(lead.followUp)}
                         value={toDateInputValue(lead.followUp)}
                         onChange={(e) => handleUpdateLeadField(lead.id, 'followUp', e.target.value)}
                         style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', color: '#1e293b', fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}

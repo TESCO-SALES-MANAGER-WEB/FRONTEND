@@ -14,6 +14,23 @@ const SITE_CONDITIONS = ['Flat', 'Slope', 'Filled', 'Rock', 'Other'];
 const START_DATES = ['Immediately', 'Within 1 Month', 'Within 3 Months', 'Just Planning', 'Other'];
 const QUOTATION_TYPES = ['Initial Quotation', 'Revised Quotation', 'Final Quotation'];
 
+// Convert any stored follow-up value into a datetime-local value (YYYY-MM-DDTHH:mm).
+// Handles ISO date, ISO datetime, "DD-MM-YYYY", and "DD-MM-YYYY, hh:mm AM/PM".
+const toDateInput = (v) => {
+  if (!v || typeof v !== 'string') return '';
+  const s = v.trim();
+  if (s === 'No Date' || s === 'Pending' || s === '') return '';
+  let dPart = '', tPart = '', m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{1,2}):(\d{2})\s*([AaPp][Mm])/))) { let h = parseInt(m[4], 10); const ap = m[6].toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${String(h).padStart(2, '0')}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{2}):(\d{2})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; }
+  else { const d = new Date(s); if (!isNaN(d.getTime())) { dPart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; tPart = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } }
+  if (!dPart) return '';
+  return `${dPart}T${tPart || '09:00'}`;
+};
+
 const emptyForm = {
   // Basic Info
   customerName: '', companyName: '', phone: '', email: '',
@@ -152,7 +169,7 @@ const toWizardForm = (lead, defaultManager = '') => {
     projectLocation: lead.location || w.projectLocation || '',
     assignedManager: (lead.assignTo && lead.assignTo !== 'Unassigned') ? lead.assignTo : (w.assignedManager || defaultManager),
     expectedTimeline: lead.expectedTimeline || w.expectedTimeline || '',
-    followUpDate: (lead.followUp && lead.followUp !== 'Pending') ? lead.followUp : (w.followUpDate || ''),
+    followUpDate: toDateInput(lead.followUp) || (w.followUpDate || ''),
     status: STATUS_CODE_TO_WIZARD[lead.status] || 'New',
     projectValue: lead.budget || w.projectValue || '',
     ocMilestones: Array.isArray(w.ocMilestones) && w.ocMilestones.length ? w.ocMilestones : [{ term: '', percentage: '', value: '' }],
@@ -329,8 +346,8 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
                     {TIMELINES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </Field>
-                <Field label="Next Follow-up Date">
-                  <input type="date" style={inputStyle} value={form.followUpDate} onChange={(e) => set('followUpDate', e.target.value)} />
+                <Field label="Next Follow-up Date & Time">
+                  <input type="datetime-local" style={inputStyle} value={form.followUpDate} onChange={(e) => set('followUpDate', e.target.value)} />
                 </Field>
                 <Field label="Status" required>
                   <select style={inputStyle} value={form.status} onChange={(e) => set('status', e.target.value)}>

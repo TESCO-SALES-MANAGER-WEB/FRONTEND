@@ -19,7 +19,7 @@ const Sidebar = ({ activePage = 'dashboard', setActivePage = () => {}, onClose =
       <div className="sidebar-header">
         <div className="logo-text">
           <h1>SalesCRM</h1>
-          <span>Construction Workflow</span>
+          <span>Tesco Structures</span>
         </div>
         <button className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar">
           <ChevronLeft size={20} />
