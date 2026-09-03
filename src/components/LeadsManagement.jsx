@@ -1303,7 +1303,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
               <th>Project Value</th>
               <th>Phone Number</th>
               <th>Email</th>
-              <th>Campaign</th>
               <th>City</th>
               <th>Expected Start</th>
               <th>Area (sq ft)</th>
@@ -1363,7 +1362,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     <td className="budget-cell">{lead.budget || '-'}</td>
                     <td className="phone-cell">{lead.phone}</td>
                     <td>{lead.email || '-'}</td>
-                    <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '240px' }}>{lead.campaign || '-'}</td>
                     <td>{lead.city || '-'}</td>
                     <td>{lead.timeline ? String(lead.timeline).replace(/_/g, ' ') : '-'}</td>
                     <td>{lead.area ? String(lead.area).replace(/_/g, ' ') : '-'}</td>
