@@ -59,6 +59,10 @@ const leadFromApi = (l) => ({
   email: l.email || '',
   location: l.location || '',
   budget: l.budget || '',
+  campaign: l.campaign || '',
+  city: l.city || '',
+  area: l.area || '',
+  timeline: l.timeline || '',
   source: sourceFromApi(l.source),
   services: l.projectType || l.services || 'PEB',
   workType: l.workType || l.projectType || l.services || '',
@@ -1298,6 +1302,11 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
               </th>
               <th>Project Value</th>
               <th>Phone Number</th>
+              <th>Email</th>
+              <th>Campaign</th>
+              <th>City</th>
+              <th>Expected Start</th>
+              <th>Area (sq ft)</th>
               <th>
                 <select
                   className="header-filter-select"
@@ -1330,17 +1339,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                 </select>
               </th>
               <th>Design Req</th>
-              <th>
-                <select
-                  className="header-filter-select"
-                  value={assigneeFilter}
-                  onChange={(e) => setAssigneeFilter(e.target.value)}
-                >
-                  <option value="All">Assign To</option>
-                  {SALES_TEAM.map((name) => (<option key={name} value={name}>{name}</option>))}
-                  <option value="Unassigned">Unassigned</option>
-                </select>
-              </th>
               <th>Follow-up</th>
               <th>Action</th>
               <th>Notes</th>
@@ -1364,6 +1362,11 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     <td className="services-cell">{lead.services}</td>
                     <td className="budget-cell">{lead.budget || '-'}</td>
                     <td className="phone-cell">{lead.phone}</td>
+                    <td>{lead.email || '-'}</td>
+                    <td>{lead.campaign || '-'}</td>
+                    <td>{lead.city || '-'}</td>
+                    <td>{lead.timeline ? String(lead.timeline).replace(/_/g, ' ') : '-'}</td>
+                    <td>{lead.area ? String(lead.area).replace(/_/g, ' ') : '-'}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="select-container source-container">
                         <select
@@ -1432,19 +1435,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                       </div>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <div className="select-container assignee-container">
-                        <select 
-                          className="assignee-dropdown"
-                          value={lead.assignTo}
-                          onChange={(e) => handleUpdateLeadField(lead.id, 'assignTo', e.target.value)}
-                        >
-                          {SALES_TEAM.map((name) => (<option key={name} value={name}>{name}</option>))}
-                          <option value="Unassigned">Unassigned</option>
-                        </select>
-                        <ChevronDown className="select-chevron" size={12} />
-                      </div>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
                       <input
                         type="datetime-local"
                         className="followup-input"
@@ -1479,14 +1469,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                           title="Download Lead PDF"
                         >
                           <Download size={14} />
-                        </button>
-                        <button
-                          className="btn-icon-action delete-btn"
-                          onClick={() => handleDeleteLeadClick(lead.id)}
-                          style={{ background: '#FEE2E2', border: 'none', color: '#dc2626', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Delete Lead"
-                        >
-                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -1532,28 +1514,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
           onClose={() => setEditWizardLead(null)}
           onSave={(data) => handleWizardEditSave(editWizardLead, data)}
         />
-      )}
-      {/* Move-to-Junk confirmation popup */}
-      {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => setDeleteTarget(null)}>
-          <div style={{ background: '#fff', width: '100%', maxWidth: '420px', borderRadius: '16px', boxShadow: '0 20px 48px rgba(15,23,42,0.25)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: '1.5rem 1.5rem 0.5rem', display: 'flex', gap: '0.9rem', alignItems: 'flex-start' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Trash2 size={22} />
-              </div>
-              <div>
-                <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>Move lead to Junk?</h3>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748B', lineHeight: 1.5 }}>
-                  <strong style={{ color: '#111827' }}>{deleteTarget.name || deleteTarget.leadId}</strong> will be moved to Junk. You can still find it under the Junk filter.
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1.25rem 1.5rem' }}>
-              <button onClick={() => setDeleteTarget(null)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#fff', color: '#334155', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Cancel</button>
-              <button onClick={confirmDeleteLead} style={{ padding: '0.6rem 1.4rem', borderRadius: '8px', border: 'none', background: '#DC2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Move to Junk</button>
-            </div>
-          </div>
-        </div>
       )}
       {/* Edit Lead Modal */}
       {editingLead && (
