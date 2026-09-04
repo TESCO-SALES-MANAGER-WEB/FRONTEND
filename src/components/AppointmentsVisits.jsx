@@ -23,6 +23,9 @@ import DateRangePicker from './DateRangePicker';
 import { appointmentsApi, leadsApi } from '../api/client';
 import { notify } from '../utils/notify';
 
+// Local-time YYYY-MM-DD (never toISOString — that shifts to UTC and moves IST dates back a day)
+const _ymdLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // ── Map between the shared backend appointment shape and this view's richer shape ──
 const apptFromApi = (a) => ({
   id: a._id || a.id,
@@ -551,7 +554,7 @@ const AppointmentsVisits = () => {
       notify('This lead already has an appointment. Only one appointment is allowed per lead.', 'warning');
       return;
     }
-    const dateToSave = newDate || new Date().toISOString().split('T')[0];
+    const dateToSave = newDate || _ymdLocal(new Date());
     const timeToSave = (newTimeStart && newTimeEnd)
       ? `${formatTime12h(newTimeStart)} - ${formatTime12h(newTimeEnd)}`
       : (newTime || '10:00 AM - 11:30 AM');
@@ -600,11 +603,11 @@ const AppointmentsVisits = () => {
   // Format YYYY-MM-DD string to relative labels "Today", "Tomorrow" or readable date format
   const getDisplayDate = (dateStr) => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = _ymdLocal(today);
     
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = _ymdLocal(tomorrow);
 
     if (dateStr === todayStr) return 'Today';
     if (dateStr === tomorrowStr) return 'Tomorrow';
@@ -686,7 +689,7 @@ const AppointmentsVisits = () => {
   const renderCalendarDays = () => {
     const days = [];
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = _ymdLocal(today);
 
     const daysInMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1).getDay();
@@ -747,7 +750,7 @@ const AppointmentsVisits = () => {
             setIsCreateVisitOpen(true);
             setNewCustomerName('');
             setNewLocation('');
-            setNewDate(new Date().toISOString().split('T')[0]);
+            setNewDate(_ymdLocal(new Date()));
             setNewTime('10:00 AM - 11:30 AM');
           }}>
             <Plus size={16} />
@@ -1116,7 +1119,7 @@ const AppointmentsVisits = () => {
               <label>Date</label>
               <input
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
+                min={_ymdLocal(new Date())}
                 className="form-input"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
@@ -1393,7 +1396,7 @@ const AppointmentsVisits = () => {
               <label>New Date</label>
               <input
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
+                min={_ymdLocal(new Date())}
                 className="form-input"
                 value={rescheduleDate}
                 onChange={(e) => setRescheduleDate(e.target.value)}

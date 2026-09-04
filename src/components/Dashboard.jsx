@@ -76,7 +76,7 @@ const Dashboard = ({ setActivePage }) => {
   const myLeadIds = new Set(myLeads.map((l) => l.id));
   const myQuotes = quotes.filter((q) => myLeadIds.has(q.leadId) && inDate(q.date || q.createdAt));
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = _isoD(new Date());
   const nowMs = Date.now();
   const statusHas = (l, kw) => (l.status || '').toLowerCase().includes(kw);
 
