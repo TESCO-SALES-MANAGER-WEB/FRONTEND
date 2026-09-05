@@ -1048,7 +1048,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
     const matchesService = serviceFilter === 'All' || lead.services === serviceFilter;
     const matchesSource = sourceFilter === 'All' || lead.source === sourceFilter;
-    const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
+    const matchesStatus = statusFilter === 'All' ? (lead.status !== 'JUNK' && lead.status !== 'LOST') : lead.status === statusFilter;
     const matchesAssignee = assigneeFilter === 'All' || lead.assignTo === assigneeFilter;
     const matchesDate = inSelectedRange(lead.date || lead.createdAt);
 
@@ -1467,6 +1467,14 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                           title="Download Lead PDF"
                         >
                           <Download size={14} />
+                        </button>
+                        <button
+                          className="btn-icon-action delete-btn"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteLeadClick(lead.id); }}
+                          style={{ background: '#FEE2E2', border: 'none', color: '#dc2626', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Move Lead to Junk"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -2173,6 +2181,48 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Move-to-Junk (soft delete) confirmation */}
+      {deleteTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b' }}>Move Lead to Junk?</h2>
+              <button className="close-btn" onClick={() => setDeleteTarget(null)} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '0 24px 24px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Lead Information</div>
+                <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: '700', marginTop: '4px' }}>
+                  {deleteTarget.leadId} — {deleteTarget.name}
+                </div>
+              </div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '500' }}>
+                This lead will be moved to <span style={{ fontWeight: '700', color: '#dc2626' }}>Junk</span>. It will be hidden from the main list but kept under the Junk filter. You can still find it there.
+              </div>
+            </div>
+            <div className="modal-footer" style={{ borderTop: 'none', background: 'transparent', padding: '0 24px 24px 24px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setDeleteTarget(null)}
+                style={{ backgroundColor: 'white', color: '#1e293b', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={confirmDeleteLead}
+                style={{ backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                Move to Junk
+              </button>
             </div>
           </div>
         </div>

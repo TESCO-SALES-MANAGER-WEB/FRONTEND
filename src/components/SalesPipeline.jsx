@@ -67,7 +67,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
   }, []);
 
   const mgrKey = mgrName.toLowerCase();
-  const opIdForLead = (l) => `OP-${parseInt(String(l.id || '').replace(/\D/g, '')) || l.id}`;
+  const opIdForLead = (l) => `OP-${String(l.id || '').replace(/\D/g, '') || l.id}`;
   // Resolve the REAL lead id to show in the pipeline's Lead ID column. Persisted pipeline docs
   // can lose their leadId on the server, leaving only an "OP-<num>" id — so recover the lead by
   // reversing OP-<numeric lead id>, then by customer name, before falling back to the raw id.
@@ -94,7 +94,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
   // so a lead never shows up twice.
   const leadOpps = useMemo(() => (
     (Array.isArray(leads) ? leads : [])
-      .filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey && parseAmount(l.budget) > 0)
+      .filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey && parseAmount(l.budget) > 0 && l.status !== 'JUNK' && l.status !== 'LOST')
       .map((l) => ({
         id: opIdForLead(l),
         leadId: l.id,
@@ -128,7 +128,24 @@ const SalesPipeline = ({ goToLeadForm }) => {
     const docIds = new Set(myDocs.map((p) => p.id));
     const docLeadIds = new Set(myDocs.map((p) => p.leadId).filter(Boolean));
     const extra = leadOpps.filter((lo) => !docIds.has(lo.id) && !(lo.leadId && docLeadIds.has(lo.leadId)));
-    return [...myDocs, ...extra];
+    const all = [...myDocs, ...extra];
+    // Collapse to one row per lead. The shared `pipelines` collection can hold more than one
+    // doc for the same lead (historically OP-0716 from the Coordinator app vs OP-716 here), so
+    // key by the resolved lead id and keep the most-edited doc (non-'New' stage / has follow-up).
+    const leadKey = (op) => {
+      if (op.leadId) return op.leadId;
+      const byOp = (Array.isArray(leads) ? leads : []).find((l) => opIdForLead(l) === op.id);
+      return byOp ? byOp.id : op.id;
+    };
+    const score = (op) => (op.stage && op.stage !== 'New' ? 2 : 0) + (op.followUp ? 1 : 0);
+    const byKey = new Map();
+    const order = [];
+    all.forEach((op) => {
+      const key = leadKey(op);
+      if (!byKey.has(key)) { byKey.set(key, op); order.push(key); }
+      else if (score(op) > score(byKey.get(key))) { byKey.set(key, op); }
+    });
+    return order.map((k) => byKey.get(k));
   }, [pipeline, leadOpps, leads, mgrKey]);
 
   // Persist derived opportunities to MongoDB once loaded, so ALL pipeline rows live in the DB
@@ -143,6 +160,32 @@ const SalesPipeline = ({ goToLeadForm }) => {
     if (toPersist.length === 0) return;
     pipelineApi.bulk(toPersist).then(() => loadPipeline()).catch((e) => console.error('Failed to persist pipeline opportunities:', e));
   }, [loaded, leadOpps, pipeline]);
+
+  // One-time self-heal: the shared `pipelines` collection may hold more than one doc for the
+  // same lead (e.g. OP-0716 written by the Coordinator app and OP-716 written here before the
+  // id schemes were aligned). Keep the most-edited doc per lead and delete the redundant ones,
+  // so the duplicate row can never resurface.
+  const healedRef = React.useRef(false);
+  useEffect(() => {
+    if (healedRef.current || !loaded || pipeline.length === 0 || leads.length === 0) return;
+    const myLeadIds = new Set(
+      (Array.isArray(leads) ? leads : [])
+        .filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey)
+        .map((l) => l.id)
+    );
+    const groups = {};
+    pipeline.forEach((p) => { const lid = p.leadId; if (lid && myLeadIds.has(lid)) (groups[lid] = groups[lid] || []).push(p); });
+    const score = (op) => (op.stage && op.stage !== 'New' ? 2 : 0) + (op.followUp ? 1 : 0);
+    const removeIds = [];
+    Object.values(groups).forEach((docs) => {
+      if (docs.length < 2) return;
+      const sorted = [...docs].sort((a, b) => score(b) - score(a));
+      sorted.slice(1).forEach((d) => removeIds.push(d.id));
+    });
+    if (removeIds.length === 0) { healedRef.current = true; return; }
+    healedRef.current = true;
+    Promise.all(removeIds.map((rid) => pipelineApi.remove(rid).catch(() => {}))).then(() => loadPipeline());
+  }, [loaded, pipeline, leads, mgrKey]);
 
   const updateStage = (id, newStage) => {
     const row = mergedPipeline.find((r) => r.id === id) || { id };
