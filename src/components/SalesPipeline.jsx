@@ -69,6 +69,8 @@ const SalesPipeline = ({ goToLeadForm }) => {
 
   const mgrKey = mgrName.toLowerCase();
   const opIdForLead = (l) => `OP-${String(l.id || '').replace(/\D/g, '') || l.id}`;
+  // Numeric lead key: collapses LD-0718 / OP-718 / OP-0718 to the SAME key (bulletproof dedup).
+  const numKey = (v) => { const n = parseInt(String(v || '').replace(/\D/g, ''), 10); return Number.isNaN(n) ? '' : 'L' + n; };
   // Resolve the REAL lead id to show in the pipeline's Lead ID column. Persisted pipeline docs
   // can lose their leadId on the server, leaving only an "OP-<num>" id — so recover the lead by
   // reversing OP-<numeric lead id>, then by customer name, before falling back to the raw id.
@@ -134,11 +136,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
     // Collapse to one row per lead. The shared `pipelines` collection can hold more than one
     // doc for the same lead (historically OP-0716 from the Coordinator app vs OP-716 here), so
     // key by the resolved lead id and keep the most-edited doc (non-'New' stage / has follow-up).
-    const leadKey = (op) => {
-      if (op.leadId) return op.leadId;
-      const byOp = (Array.isArray(leads) ? leads : []).find((l) => opIdForLead(l) === op.id);
-      return byOp ? byOp.id : op.id;
-    };
+    const leadKey = (op) => numKey(op.leadId) || numKey(op.id) || op.id;
     const score = (op) => (op.stage && op.stage !== 'New' ? 2 : 0) + (op.followUp ? 1 : 0);
     const byKey = new Map();
     const order = [];
@@ -160,14 +158,14 @@ const SalesPipeline = ({ goToLeadForm }) => {
   const healedRef = React.useRef(false);
   useEffect(() => {
     if (healedRef.current || !loaded || pipeline.length === 0 || leads.length === 0) return;
-    const myLeadIds = new Set(
+    const myNums = new Set(
       (Array.isArray(leads) ? leads : [])
         .filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey)
-        .map((l) => l.id)
+        .map((l) => numKey(l.id)).filter(Boolean)
     );
     const groups = {};
-    pipeline.forEach((p) => { const lid = p.leadId; if (lid && myLeadIds.has(lid)) (groups[lid] = groups[lid] || []).push(p); });
-    const score = (op) => (op.stage && op.stage !== 'New' ? 2 : 0) + (op.followUp ? 1 : 0);
+    pipeline.forEach((p) => { const k = numKey(p.leadId || p.id); if (k && myNums.has(k)) (groups[k] = groups[k] || []).push(p); });
+    const score = (op) => (op.leadId ? 4 : 0) + (op.stage && op.stage !== 'New' ? 2 : 0) + (op.followUp ? 1 : 0);
     const removeIds = [];
     Object.values(groups).forEach((docs) => {
       if (docs.length < 2) return;
