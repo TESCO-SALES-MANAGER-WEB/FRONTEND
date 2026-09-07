@@ -8,6 +8,7 @@ import './LeadsManagement.css';
 import DateRangePicker from './DateRangePicker';
 import AddLeadWizard from './AddLeadWizard';
 import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi } from '../api/client';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { statusColor, sourceColor } from '../theme/statusColors';
 
@@ -216,18 +217,20 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const [apptRecords, setApptRecords] = useState([]);
   const [quoteRecords, setQuoteRecords] = useState([]);
   const [projectRecords, setProjectRecords] = useState([]);
-  React.useEffect(() => {
+  const loadActivity = () => {
     appointmentsApi.list().then((d) => Array.isArray(d) && setApptRecords(d)).catch(() => {});
     quotationsApi.list().then((d) => Array.isArray(d) && setQuoteRecords(d)).catch(() => {});
     projectsApi.list().then((d) => Array.isArray(d) && setProjectRecords(d)).catch(() => {});
-  }, []);
+  };
+  React.useEffect(() => { loadActivity(); }, []);
+  useAutoRefresh(loadActivity);
 
   // The Manager app only shows leads assigned to the currently logged-in manager
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
   const mgrKey = mgrName.toLowerCase();
 
   // Load this manager's leads from the shared backend (coordinator assigns; only theirs show here)
-  React.useEffect(() => {
+  const loadLeads = () => {
     leadsApi.list()
       .then((data) => {
         if (Array.isArray(data)) {
@@ -237,7 +240,9 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       })
       .catch((e) => console.error('Failed to load leads:', e))
       .finally(() => setLeadsLoaded(true));
-  }, []);
+  };
+  React.useEffect(() => { loadLeads(); }, []);
+  useAutoRefresh(loadLeads);
 
   // Sync local changes back to the shared backend
   React.useEffect(() => {

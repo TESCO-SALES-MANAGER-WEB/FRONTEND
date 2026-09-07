@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Filter, Flame, Activity, Snowflake, XCircle, Eye, Pencil, Trash2, Plus, X } from 'lucide-react';
 import { pipelineApi, leadsApi } from '../api/client';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { stageColor } from '../theme/statusColors';
 
@@ -63,9 +64,11 @@ const SalesPipeline = ({ goToLeadForm }) => {
   // Load this manager's leads so every lead with a Project Value shows up automatically.
   const [leads, setLeads] = useState([]);
   const [leadsLoaded, setLeadsLoaded] = useState(false);
-  useEffect(() => {
+  const loadLeads = () => {
     leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads([...d].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0))); }).catch((e) => console.error('Failed to load leads:', e)).finally(() => setLeadsLoaded(true));
-  }, []);
+  };
+  useEffect(() => { loadLeads(); }, []);
+  useAutoRefresh(() => { loadPipeline(); loadLeads(); });
 
   const mgrKey = mgrName.toLowerCase();
   const opIdForLead = (l) => `OP-${String(l.id || '').replace(/\D/g, '') || l.id}`;

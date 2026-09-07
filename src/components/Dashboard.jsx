@@ -17,6 +17,7 @@ import {
 import './Dashboard.css';
 import DateRangePicker from './DateRangePicker';
 import { leadsApi, quotationsApi, appointmentsApi, projectsApi, pipelineApi, paymentsApi } from '../api/client';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 
 // ── money helpers ──
 const parseAmount = (v) => {
@@ -52,14 +53,16 @@ const Dashboard = ({ setActivePage }) => {
   const [pipeline, setPipeline] = useState([]); // Sales Pipeline opportunities (same source as the page)
   const [payments, setPayments] = useState([]); // Payment Collection records (same source as the page)
 
-  useEffect(() => {
+  const loadAll = () => {
     leadsApi.list().then((d) => Array.isArray(d) && setLeads(d)).catch((e) => console.error(e));
     quotationsApi.list().then((d) => Array.isArray(d) && setQuotes(d)).catch((e) => console.error(e));
     appointmentsApi.list().then((d) => Array.isArray(d) && setAppointments(d)).catch((e) => console.error(e));
     projectsApi.list().then((d) => Array.isArray(d) && setProjects(d)).catch((e) => console.error(e));
     pipelineApi.list().then((d) => Array.isArray(d) && setPipeline(d)).catch((e) => console.error(e));
     paymentsApi.list().then((d) => Array.isArray(d) && setPayments(d)).catch((e) => console.error(e));
-  }, []);
+  };
+  useEffect(() => { loadAll(); }, []);
+  useAutoRefresh(loadAll);
 
   const monthsMap = [
     'January', 'February', 'March', 'April', 'May', 'June',

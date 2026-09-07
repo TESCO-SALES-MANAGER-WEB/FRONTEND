@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, XCircle, Plus, Calendar, ChevronDown, X, Search, Eye, Pencil, CreditCard, Download, FileText, Upload, Bell, StickyNote, Save, ListChecks } from 'lucide-react';
 import { paymentsApi, leadsApi, projectsApi } from '../api/client';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 
 const PER_PAGE = 8;
@@ -163,6 +164,11 @@ const Payments = () => {
   useEffect(() => {
     projectsApi.list().then((d) => { if (Array.isArray(d)) setProjects(d); }).catch((e) => console.error('Failed to load order confirmations:', e));
   }, []);
+  useAutoRefresh(() => {
+    loadPayments();
+    leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads(d); }).catch(() => {});
+    projectsApi.list().then((d) => { if (Array.isArray(d)) setProjects(d); }).catch(() => {});
+  });
 
   // ── Lifecycle gating for the Payment lead picker ──
   //   eligible = this manager's lead has a CONFIRMED order AND no payment record yet.

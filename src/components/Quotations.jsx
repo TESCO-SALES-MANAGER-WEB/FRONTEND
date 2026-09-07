@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import './Quotations.css';
 import { quotationsApi, leadsApi, appointmentsApi, api } from '../api/client';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 
 // Map the shared backend quotation onto this view's shape
@@ -37,7 +38,7 @@ const Quotations = () => {
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
 
   // Load only quotations for leads assigned to the logged-in manager
-  React.useEffect(() => {
+  const loadQuotationsData = () => {
     Promise.all([quotationsApi.list(), leadsApi.list()])
       .then(([quotes, leads]) => {
         const all = Array.isArray(leads) ? leads : [];
@@ -52,7 +53,12 @@ const Quotations = () => {
         setQuotesList(mine);
       })
       .catch((e) => console.error('Failed to load quotations:', e));
-  }, []);
+  };
+  React.useEffect(() => { loadQuotationsData(); }, []);
+  useAutoRefresh(() => {
+    loadQuotationsData();
+    appointmentsApi.list().then((data) => { if (Array.isArray(data)) setAppts(data); }).catch(() => {});
+  });
 
   // Load appointments/visits so we only offer leads whose VISIT is completed
   // (strict lifecycle: Visit completed → Quotation).
