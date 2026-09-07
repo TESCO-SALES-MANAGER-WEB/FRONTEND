@@ -62,8 +62,9 @@ const SalesPipeline = ({ goToLeadForm }) => {
 
   // Load this manager's leads so every lead with a Project Value shows up automatically.
   const [leads, setLeads] = useState([]);
+  const [leadsLoaded, setLeadsLoaded] = useState(false);
   useEffect(() => {
-    leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads([...d].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0))); }).catch((e) => console.error('Failed to load leads:', e));
+    leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads([...d].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0))); }).catch((e) => console.error('Failed to load leads:', e)).finally(() => setLeadsLoaded(true));
   }, []);
 
   const mgrKey = mgrName.toLowerCase();
@@ -114,6 +115,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
   // Merge: saved pipeline opportunities take precedence; add derived lead-opps that aren't
   // already represented (matched by opportunity id or by leadId).
   const mergedPipeline = useMemo(() => {
+    if (!leadsLoaded) return []; // wait for leads before matching docs (prevents duplicate flash)
     // Access control: a manager only sees THEIR OWN opportunities. The pipeline collection is
     // shared with the Coordinator and other managers, so filter the stored docs to this manager
     // (by the doc's manager, or by a lead assigned to this manager).
@@ -146,20 +148,10 @@ const SalesPipeline = ({ goToLeadForm }) => {
       else if (score(op) > score(byKey.get(key))) { byKey.set(key, op); }
     });
     return order.map((k) => byKey.get(k));
-  }, [pipeline, leadOpps, leads, mgrKey]);
+  }, [pipeline, leadOpps, leads, mgrKey, leadsLoaded]);
 
-  // Persist derived opportunities to MongoDB once loaded, so ALL pipeline rows live in the DB
-  // (not just the ones a stage/follow-up was edited on). Idempotent upsert by opportunity id.
-  const persistedRef = React.useRef(false);
-  useEffect(() => {
-    if (persistedRef.current || !loaded || leadOpps.length === 0) return;
-    const docIds = new Set(pipeline.map((p) => p.id));
-    const docLeadIds = new Set(pipeline.map((p) => p.leadId).filter(Boolean));
-    const toPersist = leadOpps.filter((lo) => !docIds.has(lo.id) && !(lo.leadId && docLeadIds.has(lo.leadId)));
-    persistedRef.current = true;
-    if (toPersist.length === 0) return;
-    pipelineApi.bulk(toPersist).then(() => loadPipeline()).catch((e) => console.error('Failed to persist pipeline opportunities:', e));
-  }, [loaded, leadOpps, pipeline]);
+  // (Auto-persist of derived opportunities removed — it created duplicate docs. A pipeline
+  // doc is now written only when the user edits stage/follow-up or adds an opportunity.)
 
   // One-time self-heal: the shared `pipelines` collection may hold more than one doc for the
   // same lead (e.g. OP-0716 written by the Coordinator app and OP-716 written here before the
