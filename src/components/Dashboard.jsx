@@ -18,6 +18,7 @@ import './Dashboard.css';
 import DateRangePicker from './DateRangePicker';
 import { leadsApi, quotationsApi, appointmentsApi, projectsApi, pipelineApi, paymentsApi } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
+import { formatINRShort } from '../utils/currency';
 
 // ── money helpers ──
 const parseAmount = (v) => {
@@ -27,12 +28,7 @@ const parseAmount = (v) => {
   return Number.isNaN(n) ? 0 : n;
 };
 const quoteTotal = (q) => parseAmount(q.amount) + parseAmount(q.gst);
-const formatCompact = (n) => {
-  if (n >= 1e7) return '₹' + (n / 1e7).toFixed(2) + 'Cr';
-  if (n >= 1e5) return '₹' + (n / 1e5).toFixed(1) + 'L';
-  if (n >= 1e3) return '₹' + Math.round(n / 1e3) + 'K';
-  return '₹' + Math.round(n).toLocaleString('en-IN');
-};
+const formatCompact = (n) => formatINRShort(n);
 const invoiceStatus = (q) =>
   q.approvalStatus === 'Approved' && q.quotationStatus === 'Prepared' ? 'Received'
     : q.approvalStatus === 'Approved' ? 'Advance Received'

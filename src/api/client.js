@@ -104,4 +104,13 @@ export const authApi = {
     api('/auth/profile', { method: 'PATCH', body: { name, email }, auth: true }),
 };
 
+// ── Managers (real users, for "Assigned To" / manager dropdowns & agent filters) ──
+// Active managers only — a deactivated account must never appear in a dropdown.
+export const managersApi = {
+  list: async () => {
+    const rows = await api('/auth/managers', { auth: true });
+    return (Array.isArray(rows) ? rows : []).filter((m) => m && m.isActive !== false);
+  },
+};
+
 export { API_BASE };

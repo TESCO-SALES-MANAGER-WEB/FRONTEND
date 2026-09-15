@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Check, ArrowRight, ArrowLeft, Building2, ClipboardList, CalendarDays, IndianRupee, PenLine, Plus, Trash2 } from 'lucide-react';
+import { formatINR } from '../utils/currency';
 
 const STEPS = ['Basic Info', 'Project Details', 'Quotations', 'Order Confirm', 'Review'];
 
@@ -388,7 +389,7 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem 1.75rem', marginBottom: '1.5rem' }}>
                 <Field label="Lead ID">
-                  <input style={{ ...inputStyle, background: '#F1F5F9', color: 'var(--text-muted)' }} value="Pending Generation" disabled />
+                  <input style={{ ...inputStyle, background: '#F1F5F9', color: 'var(--text-muted)' }} value={form.leadId || form.id || 'Auto-generated on save'} disabled />
                 </Field>
                 <Field label="Client Name">
                   <input style={inputStyle} value={form.customerName} onChange={(e) => set('customerName', e.target.value)} placeholder="e.g. Acme Corp" />
@@ -561,7 +562,7 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
               {[
                 { title: 'Basic Info', rows: [['Customer Name', form.customerName || '-'], ['Company', form.companyName || '-'], ['Phone', form.phone || '-'], ['Email', form.email || '-'], ['Lead Source', form.leadSource], ['Service', form.service], ['Assigned Manager', form.assignedManager || '-'], ['Status', form.status]] },
                 { title: 'Project Details', rows: [['Project Type', form.projectType], ['Structure Type', form.structureType], ['Site Condition', form.siteCondition], ['Soil Test', form.soilTest], ['Approx. Area', form.approximateArea ? `${form.approximateArea} sq.ft` : '-'], ['Site Visit', form.siteVisit], ['Expected Start', form.expectedStartDate]] },
-                { title: 'Quotation', rows: [['Quotation Type', form.quotationType], ['Roofing Type', form.service === 'Other roofing' ? (form.roofingType || '-') : 'N/A'], ['Project Value', form.projectValue ? `₹${form.projectValue}` : '-'], ['File', form.fileName || 'None']] },
+                { title: 'Quotation', rows: [['Quotation Type', form.quotationType], ['Roofing Type', form.service === 'Other roofing' ? (form.roofingType || '-') : 'N/A'], ['Project Value', form.projectValue ? formatINR(form.projectValue) : '-'], ['File', form.fileName || 'None']] },
                 { title: 'Order Confirm', rows: [['Client', form.ocClientName || '-'], ['Proposal Ref', form.ocProposalRef || '-'], ['Quoted Price', form.ocQuotedPrice ? `₹${form.ocQuotedPrice}` : '-'], ['Milestones', String(form.ocMilestones.filter((m) => m.term).length)], ['Declaration', form.ocDeclaration ? 'Confirmed' : 'Not confirmed'], ['Signature', form.ocSignature || '-']] },
               ].map((sec) => (
                 <div key={sec.title} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.25rem 1.5rem', marginBottom: '1rem' }}>

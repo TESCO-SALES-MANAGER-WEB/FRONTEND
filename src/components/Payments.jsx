@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, XCircle, Plus, Calendar, ChevronDown, X, Search, Eye, Pencil, CreditCard, Download, FileText, Upload, Bell, StickyNote, Save, ListChecks } from 'lucide-react';
-import { paymentsApi, leadsApi, projectsApi } from '../api/client';
+import { paymentsApi, leadsApi, projectsApi, managersApi } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
+import { formatINR as formatINRShared, formatINRShort } from '../utils/currency';
 
 const PER_PAGE = 8;
 const METHODS = ['Bank Transfer', 'Cheque', 'Cash', 'UPI', 'Card', 'Other'];
@@ -18,15 +19,8 @@ const parseAmount = (val) => {
   const n = parseFloat(String(val).replace(/[^0-9.]/g, ''));
   return Number.isNaN(n) ? 0 : n;
 };
-const formatINR = (n) => '₹' + Math.round(parseAmount(n)).toLocaleString('en-IN');
-const formatCompact = (val) => {
-  const n = parseAmount(val);
-  const trim = (v) => Number(v.toFixed(2)).toString();
-  if (n >= 1e7) return '₹' + trim(n / 1e7) + 'Cr';
-  if (n >= 1e5) return '₹' + trim(n / 1e5) + 'L';
-  if (n >= 1e3) return '₹' + trim(n / 1e3) + 'K';
-  return '₹' + Math.round(n);
-};
+const formatINR = (n) => formatINRShared(n);
+const formatCompact = (val) => formatINRShort(val);
 
 // ── Date helpers ───────────────────────────────────────────────
 const fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -128,6 +122,15 @@ const Payments = () => {
   const [leads, setLeads] = useState([]);
   const [projects, setProjects] = useState([]); // order-confirmations — used to gate the Payment lead picker
   const [loaded, setLoaded] = useState(false);
+  // Real active managers for the Manager dropdown (replaces the hardcoded list)
+  const [managers, setManagers] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    managersApi.list()
+      .then((rows) => { if (alive) setManagers((rows || []).map((m) => m.name).filter(Boolean)); })
+      .catch(() => { if (alive) setManagers([]); });
+    return () => { alive = false; };
+  }, []);
 
   const [rangeKey, setRangeKey] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -772,8 +775,8 @@ const Payments = () => {
                   <label style={labelStyle}>Manager</label>
                   <select value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} disabled={readOnly} style={{ ...inputStyle, appearance: 'auto' }}>
                     <option value="">Select Manager</option>
-                    {SALES_TEAM.map((name) => <option key={name} value={name}>{name}</option>)}
-                    {form.manager && !SALES_TEAM.includes(form.manager) && <option value={form.manager}>{form.manager}</option>}
+                    {(managers.length ? managers : SALES_TEAM).map((name) => <option key={name} value={name}>{name}</option>)}
+                    {form.manager && !(managers.length ? managers : SALES_TEAM).includes(form.manager) && <option value={form.manager}>{form.manager}</option>}
                   </select>
                 </div>
                 <div>

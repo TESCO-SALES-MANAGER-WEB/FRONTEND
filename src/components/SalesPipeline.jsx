@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Filter, Flame, Activity, Snowflake, XCircle, Eye, Pencil, Trash2, Plus, X } from 'lucide-react';
+import { Filter, Flame, Activity, Snowflake, XCircle, Eye, Pencil, Trash2 } from 'lucide-react';
 import { pipelineApi, leadsApi } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { stageColor } from '../theme/statusColors';
+import { formatINR, parseAmount } from '../utils/currency';
 
 const SERVICES = ['PEB Structure', 'Tensile Roofing', 'Other roofing'];
 const STAGES = ['New', 'Hot', 'Warm', 'Cold', 'Appointment Fixed', 'Lost'];
 
 // Delegate to the shared canonical palette so pipeline stages match statuses everywhere.
 const getStageStyles = (stage) => stageColor(stage);
-
-const parseAmount = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, '')); return Number.isNaN(n) ? 0 : n; };
-const formatINR = (num) => '₹' + Number(parseAmount(num)).toLocaleString('en-IN');
 
 const selectArrowBg = `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`;
 
@@ -37,9 +35,8 @@ const actionBtnStyle = (bg, color) => ({ width: '32px', height: '32px', borderRa
 const inputStyle = { width: '100%', padding: '0.7rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.9rem', backgroundColor: 'var(--surface-color)', color: 'var(--text-main)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-main)' };
 
-const emptyForm = { customer: '', company: '', service: 'PEB Structure', stage: 'New', assignedTo: '', expectedClose: '', value: '', followUp: '' };
 
-const SalesPipeline = ({ goToLeadForm }) => {
+const SalesPipeline = () => {
   const mgrName = (localStorage.getItem('mgr_name') || '').trim();
   const [pipeline, setPipeline] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -48,9 +45,6 @@ const SalesPipeline = ({ goToLeadForm }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortValueDir, setSortValueDir] = useState(null);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
 
   // ── Load opportunities from MongoDB (no hardcoded data) ──
   const loadPipeline = () => {
@@ -199,45 +193,6 @@ const SalesPipeline = ({ goToLeadForm }) => {
     pipelineApi.remove(id).catch((e) => { console.error(e); notify('Could not delete on the server.', 'error'); });
   };
 
-  const nextOpId = () => {
-    let max = 1000;
-    pipeline.forEach((op) => { const m = /(\d+)$/.exec(op.id || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); });
-    return `OP-${max + 1}`;
-  };
-
-  const openModal = () => { setForm({ ...emptyForm, assignedTo: mgrName }); setModalOpen(true); };
-  const closeModal = () => { setModalOpen(false); setForm(emptyForm); };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!form.customer.trim()) return;
-    setSaving(true);
-    const payload = {
-      id: nextOpId(),
-      customer: form.customer.trim(),
-      company: form.company.trim(),
-      service: form.service,
-      stage: form.stage,
-      assignedTo: (form.assignedTo || mgrName || '').trim(),
-      expectedClose: form.expectedClose || '',
-      value: parseAmount(form.value),
-      lastActivity: 'Today',
-      followUp: form.followUp || '',
-      manager: mgrName,
-    };
-    try {
-      await pipelineApi.create(payload);
-      notify('Opportunity added', 'success');
-      await loadPipeline();
-      closeModal();
-    } catch (err) {
-      console.error('Failed to create opportunity:', err);
-      notify('Could not save. Is the Manager backend running on :5001?', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const resetFilters = () => { setStageFilter('All'); setServiceFilter('All'); setSearchQuery(''); setSortValueDir(null); };
   const toggleValueSort = () => setSortValueDir((d) => (d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc'));
 
@@ -276,9 +231,6 @@ const SalesPipeline = ({ goToLeadForm }) => {
           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Pages / Sales Pipeline</div>
           <h2 style={{ margin: '0.25rem 0 0', fontSize: '1.75rem', fontWeight: '700' }}>Sales Pipeline</h2>
         </div>
-        <button onClick={() => (goToLeadForm ? goToLeadForm() : openModal())} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--sidebar-bg)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.7rem 1.25rem', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-          <Plus size={16} /> Add New Opportunity
-        </button>
       </div>
 
       {/* Stat cards */}
@@ -326,7 +278,7 @@ const SalesPipeline = ({ goToLeadForm }) => {
             <tbody>
               {loaded && filtered.length === 0 ? (
                 <tr><td colSpan={10} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  {mergedPipeline.length === 0 ? 'No opportunities yet. Add a lead with a Project Value or click “Add New Opportunity”.' : 'No opportunities match your filters.'}
+                  {mergedPipeline.length === 0 ? 'No opportunities yet. Opportunities appear automatically from leads with a Project Value.' : 'No opportunities match your filters.'}
                 </td></tr>
               ) : (
                 filtered.map((op) => {
@@ -359,40 +311,6 @@ const SalesPipeline = ({ goToLeadForm }) => {
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Showing {filtered.length} of {mergedPipeline.length} opportunities</span>
         </div>
       </div>
-
-      {/* Add Opportunity modal */}
-      {modalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', overflowY: 'auto' }}>
-          <div style={{ backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '1rem', boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: '620px', padding: '2rem', margin: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>Add New Opportunity</h3>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={22} /></button>
-            </div>
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
-                <div><label style={labelStyle}>Customer</label><input required value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} placeholder="e.g. Akash Kumar" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Company</label><input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="e.g. ABC Builders" style={inputStyle} /></div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
-                <div><label style={labelStyle}>Service</label><select value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} style={{ ...inputStyle, appearance: 'auto' }}>{SERVICES.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
-                <div><label style={labelStyle}>Stage</label><select value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })} style={{ ...inputStyle, appearance: 'auto' }}>{STAGES.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
-                <div><label style={labelStyle}>Assigned to</label><input value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} placeholder="Manager / executive" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Project value (₹)</label><input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} inputMode="numeric" placeholder="e.g. 850000" style={inputStyle} /></div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
-                <div><label style={labelStyle}>Expected close</label><input value={form.expectedClose} onChange={(e) => setForm({ ...form, expectedClose: e.target.value })} placeholder="e.g. 25 Jul 2026" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Follow-up date</label><input type="date" value={form.followUp} onChange={(e) => setForm({ ...form, followUp: e.target.value })} style={inputStyle} /></div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
-                <button type="button" onClick={closeModal} style={{ background: 'var(--surface-color)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.6rem 1.4rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                <button type="submit" disabled={saving || !form.customer.trim()} style={{ background: 'var(--sidebar-bg)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.6rem 1.6rem', fontWeight: 600, cursor: (saving || !form.customer.trim()) ? 'not-allowed' : 'pointer', opacity: (saving || !form.customer.trim()) ? 0.5 : 1, fontFamily: 'inherit' }}>{saving ? 'Saving…' : 'Add Opportunity'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

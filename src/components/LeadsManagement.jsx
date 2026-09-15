@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users, Sparkles, Flame, Thermometer, Snowflake, Calendar,
   FileText, Edit3, CheckCircle, Trash2, Search, Filter, Plus,
@@ -7,9 +7,10 @@ import {
 import './LeadsManagement.css';
 import DateRangePicker from './DateRangePicker';
 import AddLeadWizard from './AddLeadWizard';
-import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi } from '../api/client';
+import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi, managersApi } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
+import { formatINR } from '../utils/currency';
 import { statusColor, sourceColor } from '../theme/statusColors';
 
 // The 4 sales managers leads can be assigned to (Indhumathi assigns, so she is not a target)
@@ -204,6 +205,15 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const [sourceFilter, setSourceFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [assigneeFilter, setAssigneeFilter] = useState('All');
+  // Real active managers for the "Assign To" dropdown (replaces hardcoded list)
+  const [managers, setManagers] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    managersApi.list()
+      .then((rows) => { if (alive) setManagers((rows || []).map((m) => m.name).filter(Boolean)); })
+      .catch(() => { if (alive) setManagers([]); });
+    return () => { alive = false; };
+  }, []);
   const [editingLead, setEditingLead] = useState(null);
   const [editWizardLead, setEditWizardLead] = useState(null); // lead being edited via the full wizard
   const [deleteTarget, setDeleteTarget] = useState(null); // lead pending "move to Junk" confirmation
@@ -281,7 +291,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     const budgetRaw = or(lead.budget, or(w.projectValue, ''));
-    const budget = budgetRaw ? (String(budgetRaw).trim().startsWith('₹') ? String(budgetRaw) : `₹${budgetRaw}`) : '—';
+    const budget = budgetRaw ? formatINR(budgetRaw) : '—';
 
     const clientName = or(lead.name, 'Client');
     const company = or(lead.company, clientName);
@@ -501,7 +511,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     const budgetRaw = or(lead.budget, or(w.projectValue, ''));
-    const budget = budgetRaw ? (String(budgetRaw).trim().startsWith('₹') ? String(budgetRaw) : `₹${budgetRaw}`) : '—';
+    const budget = budgetRaw ? formatINR(budgetRaw) : '—';
 
     const clientName = or(lead.name, 'Client');
     const company = or(lead.company, clientName);
@@ -1621,7 +1631,8 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     value={editingLead.assignTo}
                     onChange={(e) => setEditingLead({ ...editingLead, assignTo: e.target.value })}
                   >
-                    {SALES_TEAM.map((name) => (<option key={name} value={name}>{name}</option>))}
+                    {(managers.length ? managers : SALES_TEAM).map((name) => (<option key={name} value={name}>{name}</option>))}
+                    {editingLead.assignTo && editingLead.assignTo !== 'Unassigned' && !(managers.length ? managers : SALES_TEAM).includes(editingLead.assignTo) && (<option value={editingLead.assignTo}>{editingLead.assignTo}</option>)}
                     <option value="Unassigned">Unassigned</option>
                   </select>
                 </div>

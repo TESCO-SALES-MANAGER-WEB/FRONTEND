@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart2, TrendingUp, DollarSign, Target, CheckCircle } from 'lucide-react';
 import './ReportsAnalytics.css';
 import { leadsApi, quotationsApi } from '../api/client';
+import { formatINR } from '../utils/currency';
 
 const parseAmt = (v) => { const n = parseFloat(String(v || '').replace(/[^0-9.]/g, '')); return Number.isNaN(n) ? 0 : n; };
 const quoteTotal = (q) => parseAmt(q.amount) + parseAmt(q.gst);
@@ -24,7 +25,7 @@ const ReportsAnalytics = () => {
       .catch((e) => console.error('Failed to load reports:', e));
   }, []);
 
-  const fmt = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
+  const fmt = (n) => formatINR(n);
   const isClosed = (l) => /order|won|confirmed/i.test(l.status || '');
   const pipelineValue = quotes.filter((q) => !isReceived(q)).reduce((s, q) => s + quoteTotal(q), 0);
   const closedRevenue = quotes.filter(isReceived).reduce((s, q) => s + quoteTotal(q), 0);
