@@ -12,6 +12,7 @@ import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi, man
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR } from '../utils/currency';
+import { formatBytes } from '../utils/cloudinary';
 import { statusColor, sourceColor } from '../theme/statusColors';
 
 // The 4 sales managers leads can be assigned to (Indhumathi assigns, so she is not a target)
@@ -80,6 +81,7 @@ const leadFromApi = (l) => ({
   history: Array.isArray(l.history)
     ? l.history.map((h) => ({ date: h.timestamp || h.date || '', event: h.message || h.event || '', meetingRemarks: h.remark || h.meetingRemarks || '' }))
     : [],
+  attachments: Array.isArray(l.attachments) ? l.attachments : [],
 });
 const leadToApi = (m) => ({
   id: m.leadId,
@@ -103,6 +105,7 @@ const leadToApi = (m) => ({
   history: Array.isArray(m.history)
     ? m.history.map((h) => ({ timestamp: h.date || '', message: h.event || '', remark: h.meetingRemarks || '' }))
     : [],
+  attachments: Array.isArray(m.attachments) ? m.attachments : [],
 });
 
 // Parse any stored follow-up value into { dPart:'YYYY-MM-DD', tPart:'HH:mm' } (tPart may be '')
@@ -905,6 +908,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
         status: WIZARD_STATUS_MAP[data.status] || l.status,
         budget: data.budget || l.budget,
         notes: data.notes || l.notes,
+        attachments: Array.isArray(data.attachments) ? data.attachments : (l.attachments || []),
         _wizard: data._wizard || l._wizard,
         history: newHistory,
       };
@@ -958,6 +962,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       // A lead added inside the Manager app belongs to the logged-in manager
       assignTo: mgrName || data.manager || 'Unassigned',
       notes: data.notes || '',
+      attachments: Array.isArray(data.attachments) ? data.attachments : [],
       history,
     };
 
@@ -2369,6 +2374,25 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                   </div>
                 );
               })()}
+              {/* Attached Files */}
+              {Array.isArray(activeHistoryLead.attachments) && activeHistoryLead.attachments.length > 0 && (
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 18px', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '10px' }}>
+                    Attached Files
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {activeHistoryLead.attachments.map((a, i) => (
+                      <div key={a.publicId || a.url || i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <FileText size={16} style={{ color: '#4f46e5', flexShrink: 0 }} />
+                        <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, fontSize: '13.5px', fontWeight: '600', color: '#1e293b', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {a.name || 'File'}
+                        </a>
+                        {a.size ? <span style={{ fontSize: '12px', color: '#94a3b8', flexShrink: 0 }}>{formatBytes(a.size)}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <h4 style={{ fontSize: '15px', color: '#0f172a', fontWeight: '700', marginBottom: '16px' }}>Change History & Logs</h4>
               {(!activeHistoryLead.history || activeHistoryLead.history.length === 0) ? (
                 <div style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { X, Check, ArrowRight, ArrowLeft, Building2, ClipboardList, CalendarDays, IndianRupee, PenLine, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Check, ArrowRight, ArrowLeft, Building2, ClipboardList, CalendarDays, IndianRupee, PenLine, Plus, Trash2, Paperclip, FileText } from 'lucide-react';
 import { formatINR } from '../utils/currency';
+import { uploadManyToCloudinary, isUploadConfigured, formatBytes } from '../utils/cloudinary';
+import { notify } from '../utils/notify';
 
 const STEPS = ['Basic Info', 'Project Details', 'Quotations', 'Order Confirm', 'Review'];
 
@@ -56,6 +58,8 @@ const emptyForm = {
   ocQuotedPrice: '', ocMilestones: [{ term: '', percentage: '', value: '' }],
   // 5. Confirmations & Declarations
   ocDeclaration: false, ocSignature: '',
+  // Attachments (files uploaded to Cloudinary)
+  attachments: [],
 };
 
 const labelStyle = { display: 'block', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' };
@@ -174,6 +178,7 @@ const toWizardForm = (lead, defaultManager = '') => {
     status: STATUS_CODE_TO_WIZARD[lead.status] || 'New',
     projectValue: lead.budget || w.projectValue || '',
     ocMilestones: Array.isArray(w.ocMilestones) && w.ocMilestones.length ? w.ocMilestones : [{ term: '', percentage: '', value: '' }],
+    attachments: Array.isArray(lead.attachments) ? lead.attachments : (Array.isArray(w.attachments) ? w.attachments : []),
   };
 };
 
@@ -181,10 +186,40 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
   const isEdit = !!initialData;
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(() => (initialData ? toWizardForm(initialData, defaultManager) : { ...emptyForm, assignedManager: defaultManager }));
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   if (!isOpen) return null;
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  // ── Attachments (direct-to-Cloudinary upload) ──
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  const handleFilesPicked = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    if (!isUploadConfigured()) {
+      notify('File upload is not configured. Add Cloudinary env variables.', 'error');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { ok, errors } = await uploadManyToCloudinary(files, { uploadedBy: defaultManager || '' });
+      if (ok.length) {
+        setForm((f) => ({ ...f, attachments: [...(f.attachments || []), ...ok] }));
+        notify(`${ok.length} file${ok.length > 1 ? 's' : ''} uploaded.`, 'success');
+      }
+      if (errors.length) notify(errors.join(' | '), 'error');
+    } catch (e) {
+      notify(e.message || 'Upload failed.', 'error');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (idx) => setForm((f) => ({ ...f, attachments: (f.attachments || []).filter((_, i) => i !== idx) }));
 
   // ── Payment-terms auto-calculation ──
   const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^\d.]/g, '')); return isNaN(n) ? 0 : n; };
@@ -256,6 +291,7 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
       status: form.status,
       budget: form.projectValue || form.ocQuotedPrice,
       notes: `Project: ${form.projectType} / ${form.structureType}. Site: ${form.siteCondition}. Area: ${form.approximateArea || '-'} sq.ft.`,
+      attachments: form.attachments || [],
       _wizard: form,
     });
     reset();
@@ -420,6 +456,53 @@ const AddLeadWizard = ({ isOpen, onClose, onSave, defaultManager = '', initialDa
                 <Field label="Upload File (PDF)">
                   <input type="file" accept="application/pdf" style={{ ...inputStyle, padding: '0.5rem' }} onChange={(e) => set('fileName', e.target.files?.[0]?.name || '')} />
                 </Field>
+              </div>
+
+              {/* Attachments — real file upload (direct to Cloudinary) */}
+              <div style={{ marginTop: '2rem' }}>
+                <label style={labelStyle}>Attachments</label>
+                {/* Hidden native input, triggered by the Add file button / drop zone */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleFilesPicked(e.target.files)}
+                />
+                <div
+                  onClick={openFilePicker}
+                  onDragOver={(e) => { e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); handleFilesPicked(e.dataTransfer.files); }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                    border: '1.5px dashed var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.5rem',
+                    cursor: uploading ? 'wait' : 'pointer', background: '#F8FAFC', color: 'var(--text-muted)', textAlign: 'center'
+                  }}
+                >
+                  <Paperclip size={20} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {uploading ? 'Uploading…' : 'Add file'}
+                  </span>
+                  <span style={{ fontSize: '0.78rem' }}>Click to browse or drag &amp; drop (max 50 MB each)</span>
+                </div>
+
+                {(form.attachments || []).length > 0 && (
+                  <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {form.attachments.map((a, idx) => (
+                      <div key={a.publicId || a.url || idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.9rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--surface-color)' }}>
+                        <FileText size={18} style={{ color: 'var(--sidebar-bg)', flexShrink: 0 }} />
+                        <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {a.name}
+                        </a>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0 }}>{formatBytes(a.size)}</span>
+                        <button type="button" onClick={() => removeAttachment(idx)} title="Remove file"
+                          style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 'var(--radius-md)', width: '30px', height: '30px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

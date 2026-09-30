@@ -3,6 +3,13 @@ import { Search, Bell, X, User, Menu } from 'lucide-react';
 import './Header.css';
 import { notificationsApi, clearSession, getUser, setSession, getToken, authApi } from '../api/client';
 
+// Show the Head-assigned designation as a short role label: "BDE" for a Business
+// Development Executive, "Manager" otherwise. Display-only — access is unchanged.
+const roleLabel = (designation) =>
+  String(designation || '').trim().toLowerCase() === 'business development executive'
+    ? 'BDE'
+    : 'Manager';
+
 const timeAgo = (date) => {
   if (!date) return '';
   const diff = Date.now() - new Date(date).getTime();
@@ -267,7 +274,7 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>{managerName}</span>
-            <span style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>{designation}</span>
+            <span style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>{roleLabel(designation)}</span>
           </div>
 
           {isProfileDropdownOpen && (

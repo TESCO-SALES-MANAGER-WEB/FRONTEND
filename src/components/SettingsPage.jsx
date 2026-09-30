@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Bell, Save } from 'lucide-react';
 import './SettingsPage.css';
 import { notify } from '../utils/notify';
+import { getUser, setSession, getToken, authApi } from '../api/client';
+
+// The System Role field reflects the designation the Head assigns to this manager
+// account: "Business Development Executive" is shown as "BDE", everything else as
+// "Manager". This is display-only — permissions and portal access are unchanged.
+const roleLabel = (designation) =>
+  String(designation || '').trim().toLowerCase() === 'business development executive'
+    ? 'BDE'
+    : 'Manager';
 
 const SettingsPage = () => {
   // The account-holder name is stored in mgr_display_name (a display override) so it shows
@@ -9,8 +18,23 @@ const SettingsPage = () => {
   const [profile, setProfile] = useState({
     name: (localStorage.getItem('mgr_display_name') || localStorage.getItem('mgr_name') || '').trim(),
     email: (localStorage.getItem('mgr_email') || '').trim(),
-    role: 'Sales Manager',
+    role: roleLabel(getUser()?.designation),
   });
+
+  // Refresh the designation from the server so a change made in the Head app shows
+  // up here automatically (mirrors the header's behaviour).
+  useEffect(() => {
+    let alive = true;
+    authApi.me()
+      .then((res) => {
+        const u = res?.user || res;
+        if (!alive || !u) return;
+        setProfile((p) => ({ ...p, role: roleLabel(u.designation) }));
+        try { setSession(getToken(), { ...(getUser() || {}), ...u }); } catch { /* ignore */ }
+      })
+      .catch(() => { /* keep the cached value */ });
+    return () => { alive = false; };
+  }, []);
 
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
