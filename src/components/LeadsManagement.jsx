@@ -333,10 +333,17 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   React.useEffect(() => { loadLeads(); }, []);
   useAutoRefresh(loadLeads);
 
-  // Sync local changes back to the shared backend
+  // Sync local changes back to the shared backend — DEBOUNCED so rapid changes
+  // coalesce into one final write and can't arrive out of order (which could let
+  // a stale snapshot overwrite an assignment made by the Coordinator/Head).
+  const bulkTimerRef = useRef(null);
   React.useEffect(() => {
     if (!leadsLoaded) return;
-    leadsApi.bulk(leadsData.map(leadToApi)).catch((e) => console.error('Failed to sync leads:', e));
+    if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
+    bulkTimerRef.current = setTimeout(() => {
+      leadsApi.bulk(leadsData.map(leadToApi)).catch((e) => console.error('Failed to sync leads:', e));
+    }, 800);
+    return () => { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); };
   }, [leadsData, leadsLoaded]);
 
 

@@ -87,6 +87,12 @@ const Dashboard = ({ setActivePage }) => {
   const coldLeads = myLeads.filter((l) => statusHas(l, 'cold')).length;
   const lostLeads = myLeads.filter((l) => statusHas(l, 'lost')).length;
   const junkLeads = myLeads.filter((l) => statusHas(l, 'junk')).length;
+  const overdueFollowups = myLeads.filter((l) => {
+    if (l.followUpDone) return false;
+    if (String(l.status || '').toLowerCase().includes('junk')) return false;
+    const t = new Date(l.followUp).getTime();
+    return !isNaN(t) && t < Date.now();
+  }).length;
 
   // ── Appointment metrics ──
   const totalAppointments = myAppts.filter((a) => a.type !== 'Visits').length;
@@ -149,7 +155,7 @@ const Dashboard = ({ setActivePage }) => {
         { title: 'Hot Leads', value: hotLeads, sub: 'High conversion chance', bg: '#fdf1f0', color: '#ef4444', icon: <Flame size={20} />, page: 'leads' },
         { title: 'Warm Leads', value: warmLeads, sub: 'Nurturing in progress', bg: '#ffffff', color: '#f97316', icon: <Thermometer size={20} />, page: 'leads' },
         { title: 'Cold Leads', value: coldLeads, sub: 'Need re-engagement', bg: '#eff5fb', color: '#0ea5e9', icon: <Snowflake size={20} />, page: 'leads' },
-        { title: 'Lost Deal', value: lostLeads, sub: 'Unsuccessful deals', bg: '#fef4ec', color: '#f97316', icon: <XCircle size={20} />, page: 'leads' },
+        { title: 'Overdue', value: overdueFollowups, sub: 'Follow-up passed', bg: '#fef2f2', color: '#dc2626', icon: <Clock size={20} />, page: 'leads' },
         { title: 'Junk', value: junkLeads, sub: 'Unqualified leads', bg: '#ffffff', color: '#64748b', icon: <Trash2 size={20} />, page: 'leads' }
       ]
     },
