@@ -257,6 +257,16 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const [leadsData, setLeadsData] = useState([]);
   const [leadsLoaded, setLeadsLoaded] = useState(false);
 
+  // Inline Notes editing (roomy multi-line textarea in place of a cramped prompt).
+  // Uses the same save path (handleUpdateLeadField) — no data/API/logic change.
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const saveNoteInline = (id) => {
+    handleUpdateLeadField(id, 'notes', editingNoteText);
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  };
+
   // Real activity records so the overview cards reflect actual appointments / quotations /
   // order-confirmation documents (not just the lead status) — matches the Manager Dashboard.
   const [apptRecords, setApptRecords] = useState([]);
@@ -1688,22 +1698,32 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                         </button>
                       </div>
                     </td>
-                    <td 
-                      className="notes-cell" 
-                      style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b' }} 
+                    <td
+                      className="notes-cell"
+                      style={{ minWidth: '240px', maxWidth: '320px', color: '#64748b', verticalAlign: 'top' }}
                       title={lead.notes || ''}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const nextNote = window.prompt("Edit Notes:", lead.notes || "");
-                        if (nextNote !== null) {
-                          handleUpdateLeadField(lead.id, 'notes', nextNote);
-                        }
-                      }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{lead.notes || '-'}</span>
-                        <Edit3 size={12} style={{ color: '#94a3b8', flexShrink: 0 }} className="cell-edit-icon" />
-                      </div>
+                      {editingNoteId === lead.id ? (
+                        <textarea
+                          autoFocus
+                          rows={3}
+                          value={editingNoteText}
+                          onChange={(e) => setEditingNoteText(e.target.value)}
+                          onBlur={() => saveNoteInline(lead.id)}
+                          placeholder="Type a remark…"
+                          style={{ width: '100%', minHeight: '68px', resize: 'vertical', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid #6366f1', outline: 'none', fontSize: '0.8125rem', lineHeight: 1.5, fontFamily: 'inherit', boxSizing: 'border-box' }}
+                        />
+                      ) : (
+                        <div
+                          onClick={() => { setEditingNoteId(lead.id); setEditingNoteText(lead.notes || ''); }}
+                          title="Click to edit notes"
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
+                        >
+                          <span style={{ flex: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{lead.notes || '-'}</span>
+                          <Edit3 size={12} style={{ color: '#94a3b8', flexShrink: 0, marginTop: '2px' }} className="cell-edit-icon" />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 </React.Fragment>
