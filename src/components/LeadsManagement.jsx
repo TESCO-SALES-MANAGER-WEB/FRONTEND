@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users, Sparkles, Flame, Thermometer, Snowflake, Calendar,
   FileText, Edit3, CheckCircle, Trash2, Search, Filter, Plus,
@@ -79,7 +79,7 @@ const leadFromApi = (l) => ({
   assignTo: l.manager || 'Unassigned',
   notes: l.notes || '',
   history: Array.isArray(l.history)
-    ? l.history.map((h) => ({ date: h.timestamp || h.date || '', event: h.message || h.event || '', meetingRemarks: h.remark || h.meetingRemarks || '' }))
+    ? l.history.map((h) => ({ date: h.timestamp || h.date || '', event: h.message || h.event || '', meetingRemarks: h.remark || h.meetingRemarks || '', user: h.user || '' }))
     : [],
   attachments: Array.isArray(l.attachments) ? l.attachments : [],
 });
@@ -103,7 +103,7 @@ const leadToApi = (m) => ({
   manager: m.assignTo || 'Unassigned',
   notes: m.notes || '',
   history: Array.isArray(m.history)
-    ? m.history.map((h) => ({ timestamp: h.date || '', message: h.event || '', remark: h.meetingRemarks || '' }))
+    ? m.history.map((h) => ({ timestamp: h.date || '', message: h.event || '', remark: h.meetingRemarks || '', user: h.user || '' }))
     : [],
   attachments: Array.isArray(m.attachments) ? m.attachments : [],
 });
@@ -214,6 +214,9 @@ const getTimelineEventIcon = (eventText, dotColor) => {
 };
 
 const LeadsManagement = ({ openAddSignal = 0 }) => {
+  // Name of the manager currently acting, recorded on follow-up timeline entries.
+  const currentUserName = () => (localStorage.getItem('mgr_display_name') || localStorage.getItem('mgr_name') || 'Manager');
+
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Open the Add New Lead form when redirected here (e.g. from Sales Pipeline)
@@ -364,6 +367,21 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     return ms < nowTick ? 'overdue' : 'upcoming';
   };
 
+  // In-app overdue reminder: alert once per session (per lead) when a scheduled
+  // follow-up call falls due. Frontend-only — no backend involvement.
+  const remindedRef = useRef(new Set());
+  useEffect(() => {
+    const overdue = (leadsData || []).filter(
+      (l) => getFollowUpState(l) === 'overdue' && !String(l.status || '').toLowerCase().includes('junk')
+    );
+    const fresh = overdue.filter((l) => !remindedRef.current.has(l.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((l) => remindedRef.current.add(l.id));
+    const names = fresh.slice(0, 3).map((l) => l.name || 'Lead').join(', ');
+    const extra = fresh.length > 3 ? ` +${fresh.length - 3} more` : '';
+    notify(`Follow-up call due: ${names}${extra}`, 'info');
+  }, [leadsData, nowTick]);
+
   // Record that the follow-up call was completed: clears Overdue, marks done.
   // Persists via the same bulk-sync effect used for every other lead edit here.
   const markFollowUpDone = (id) => {
@@ -371,7 +389,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       if (lead.id !== id) return lead;
       const newHistory = lead.history ? [...lead.history] : [];
       const completedAt = new Date().toLocaleString();
-      newHistory.push({ date: completedAt, event: 'Follow-up call completed' });
+      newHistory.push({ date: completedAt, event: 'Follow-up call completed', user: currentUserName() });
       const updated = { ...lead, followUpDone: true, followUpCompletedAt: completedAt, history: newHistory };
       if (activeHistoryLead && activeHistoryLead.id === id) setActiveHistoryLead(updated);
       return updated;
@@ -422,12 +440,12 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       let updated;
       if (fuNoFurther) {
         // Completed: record remarks, mark done, no new follow-up date.
-        history.push({ date: completedAt, event: 'Follow-up completed — no further follow-up', meetingRemarks: remark });
+        history.push({ date: completedAt, event: 'Follow-up completed — no further follow-up', meetingRemarks: remark, user: currentUserName() });
         updated = { ...lead, followUpDone: true, followUpCompletedAt: completedAt, history };
       } else {
         // Scheduled: record remarks + set the exact next follow-up date/time. Fresh cycle.
         const value = `${fuDate}T${fuTime}`;
-        history.push({ date: completedAt, event: `Follow-up scheduled for: ${fmtFollowUp(value)}`, meetingRemarks: remark });
+        history.push({ date: completedAt, event: `Follow-up scheduled for: ${fmtFollowUp(value)}`, meetingRemarks: remark, user: currentUserName() });
         updated = { ...lead, followUp: value, followUpDone: false, followUpCompletedAt: '', history };
       }
       if (activeHistoryLead && activeHistoryLead.id === fuLeadId) setActiveHistoryLead(updated);
@@ -2465,7 +2483,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                             boxSizing: 'border-box'
                           }}
                         >
-                          <span style={{ fontSize: '11.5px', color: '#94a3b8', display: 'block', marginBottom: '6px', fontWeight: '600' }}>{h.date}</span>
+                          <span style={{ fontSize: '11.5px', color: '#94a3b8', display: 'block', marginBottom: '6px', fontWeight: '600' }}>{h.date || h.timestamp}{(h.user || h.by) ? ` — ${h.user || h.by}` : ''}</span>
                           <div style={{ fontSize: '14.5px', fontWeight: '600', color: '#1e293b' }}>{h.event}</div>
                           {h.measurementNote && (
                             <div style={{ marginTop: '6px', fontSize: '12px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', padding: '6px 10px', borderRadius: '6px', border: '1px solid #bbf7d0', width: 'fit-content' }}>
