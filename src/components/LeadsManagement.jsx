@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, Sparkles, Flame, Thermometer, Snowflake, Calendar,
   FileText, Edit3, CheckCircle, Trash2, Search, Filter, Plus,
-  ChevronDown, X, CalendarCheck, UserPlus, XCircle, Activity, Download
+  ChevronDown, X, CalendarCheck, UserPlus, XCircle, Activity, Download,
+  Phone, CheckCircle2, Clock
 } from 'lucide-react';
 import './LeadsManagement.css';
 import DateRangePicker from './DateRangePicker';
@@ -69,6 +70,8 @@ const leadFromApi = (l) => ({
   services: l.projectType || l.services || 'PEB',
   workType: l.workType || l.projectType || l.services || '',
   followUp: l.followUp || '',
+  followUpDone: l.followUpDone || false,
+  followUpCompletedAt: l.followUpCompletedAt || '',
   designReq: l.designReq || '',
   phone: l.phone || '',
   status: statusFromApi(l.status),
@@ -91,6 +94,8 @@ const leadToApi = (m) => ({
   projectType: m.services || '',
   workType: m.workType || '',
   followUp: m.followUp || '',
+  followUpDone: m.followUpDone || false,
+  followUpCompletedAt: m.followUpCompletedAt || '',
   designReq: m.designReq || '',
   status: statusToApi(m.status),
   manager: m.assignTo || 'Unassigned',
@@ -135,6 +140,24 @@ const fmtFollowUp = (v) => {
   const ap = h >= 12 ? 'PM' : 'AM';
   h = h % 12; if (h === 0) h = 12;
   return `${dateStr}, ${String(h).padStart(2, '0')}:${mm} ${ap}`;
+};
+
+// Convert a stored follow-up value into an absolute millisecond deadline.
+// When only a date was set (no time), end-of-day (23:59) is treated as the deadline.
+const followUpMillis = (v) => {
+  const p = parseFollowUp(v);
+  if (!p) return null;
+  const dt = new Date(`${p.dPart}T${p.tPart || '23:59'}`);
+  const ms = dt.getTime();
+  return isNaN(ms) ? null : ms;
+};
+
+// Build a tel: link from a phone value (digits only, keeps a leading +).
+const telHref = (v) => {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  const cleaned = s.replace(/[^\d+]/g, '');
+  return cleaned ? `tel:${cleaned}` : '';
 };
 
 const getTimelineEventStyle = (eventText) => {
@@ -272,9 +295,52 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
           date: new Date().toLocaleString(),
           event: `Updated ${field} to: ${value}`
         });
-        return { ...lead, [field]: value, history: newHistory };
+        const updated = { ...lead, [field]: value, history: newHistory };
+        // Setting a NEW follow-up date/time starts a fresh cycle, so clear any
+        // previously-recorded "call completed" flag (a new call is now expected).
+        if (field === 'followUp') {
+          updated.followUpDone = false;
+          updated.followUpCompletedAt = '';
+        }
+        return updated;
       }
       return lead;
+    }));
+  };
+
+  // --- Follow-up / Overdue tracking (derived on the frontend; no API changes) ---
+  // A ticking clock so an "Overdue" status appears the moment a follow-up time
+  // passes, without needing a page refresh.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Derive a lead's follow-up state:
+  //   'completed' -> the call was made and recorded
+  //   'overdue'   -> the scheduled date/time has passed with no call recorded
+  //   'upcoming'  -> a follow-up is scheduled in the future
+  //   'none'      -> no follow-up date set
+  const getFollowUpState = (lead) => {
+    if (!lead) return 'none';
+    if (lead.followUpDone) return 'completed';
+    const ms = followUpMillis(lead.followUp);
+    if (ms == null) return 'none';
+    return ms < nowTick ? 'overdue' : 'upcoming';
+  };
+
+  // Record that the follow-up call was completed: clears Overdue, marks done.
+  // Persists via the same bulk-sync effect used for every other lead edit here.
+  const markFollowUpDone = (id) => {
+    setLeadsData(prev => prev.map(lead => {
+      if (lead.id !== id) return lead;
+      const newHistory = lead.history ? [...lead.history] : [];
+      const completedAt = new Date().toLocaleString();
+      newHistory.push({ date: completedAt, event: 'Follow-up call completed' });
+      const updated = { ...lead, followUpDone: true, followUpCompletedAt: completedAt, history: newHistory };
+      if (activeHistoryLead && activeHistoryLead.id === id) setActiveHistoryLead(updated);
+      return updated;
     }));
   };
 
@@ -1375,7 +1441,18 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     <td className="location-cell">{lead.location || '-'}</td>
                     <td className="services-cell">{lead.services}</td>
                     <td className="budget-cell">{lead.budget || '-'}</td>
-                    <td className="phone-cell">{lead.phone}</td>
+                    <td className="phone-cell" onClick={(e) => e.stopPropagation()}>
+                      {lead.phone ? (
+                        <a
+                          href={telHref(lead.phone)}
+                          title={`Call ${lead.phone}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4f46e5', fontWeight: '600', textDecoration: 'none' }}
+                        >
+                          <Phone size={12} />
+                          {lead.phone}
+                        </a>
+                      ) : '-'}
+                    </td>
                     <td>{lead.email || '-'}</td>
                     <td>{lead.city || '-'}</td>
                     <td>{lead.timeline ? String(lead.timeline).replace(/_/g, ' ') : '-'}</td>
@@ -1448,14 +1525,54 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                       </div>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="datetime-local"
-                        className="followup-input"
-                        title={fmtFollowUp(lead.followUp)}
-                        value={toDateInputValue(lead.followUp)}
-                        onChange={(e) => handleUpdateLeadField(lead.id, 'followUp', e.target.value)}
-                        style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', color: '#1e293b', fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}
-                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                        <input
+                          type="datetime-local"
+                          className="followup-input"
+                          title={fmtFollowUp(lead.followUp)}
+                          value={toDateInputValue(lead.followUp)}
+                          onChange={(e) => handleUpdateLeadField(lead.id, 'followUp', e.target.value)}
+                          style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', color: '#1e293b', fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}
+                        />
+                        {(() => {
+                          const st = getFollowUpState(lead);
+                          if (st === 'overdue') {
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', color: '#DC2626', fontSize: '11px', fontWeight: '700', padding: '2px 7px', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                                  <Clock size={11} /> Overdue
+                                </span>
+                                <button
+                                  title="Mark follow-up call completed"
+                                  onClick={(e) => { e.stopPropagation(); markFollowUpDone(lead.id); }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#DCFCE7', color: '#166534', border: 'none', fontSize: '11px', fontWeight: '700', padding: '2px 7px', borderRadius: '999px', cursor: 'pointer' }}
+                                >
+                                  <CheckCircle2 size={11} /> Done
+                                </button>
+                              </div>
+                            );
+                          }
+                          if (st === 'completed') {
+                            return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#DCFCE7', color: '#166534', fontSize: '11px', fontWeight: '700', padding: '2px 7px', borderRadius: '999px' }}>
+                                <CheckCircle2 size={11} /> Completed
+                              </span>
+                            );
+                          }
+                          if (st === 'upcoming') {
+                            return (
+                              <button
+                                title="Mark follow-up call completed"
+                                onClick={(e) => { e.stopPropagation(); markFollowUpDone(lead.id); }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'transparent', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '600', padding: '2px 7px', borderRadius: '999px', cursor: 'pointer' }}
+                              >
+                                <CheckCircle2 size={11} /> Mark done
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="action-buttons-cell" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -2113,6 +2230,65 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
               </button>
             </div>
             <div className="drawer-content">
+              {/* Contact & Follow-up card */}
+              {(() => {
+                const st = getFollowUpState(activeHistoryLead);
+                const fu = fmtFollowUp(activeHistoryLead.followUp);
+                const phone = activeHistoryLead.phone;
+                return (
+                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 18px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
+                      {activeHistoryLead.name || 'Lead'}
+                    </div>
+                    {/* Prominent, clickable phone number */}
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '5px' }}>
+                        Customer Phone
+                      </div>
+                      {phone ? (
+                        <a
+                          href={telHref(phone)}
+                          title={`Call ${phone}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#4f46e5', color: '#fff', fontSize: '15px', fontWeight: '700', padding: '8px 14px', borderRadius: '10px', textDecoration: 'none' }}
+                        >
+                          <Phone size={16} /> {phone}
+                        </a>
+                      ) : (
+                        <div style={{ color: '#94a3b8', fontSize: '14px' }}>No phone number on file</div>
+                      )}
+                    </div>
+                    {/* Follow-up date/time with status */}
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '5px' }}>
+                        Follow-up
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                          {fu || 'No follow-up scheduled'}
+                        </span>
+                        {st === 'overdue' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', color: '#DC2626', fontSize: '12px', fontWeight: '700', padding: '3px 9px', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                            <Clock size={12} /> Overdue
+                          </span>
+                        )}
+                        {st === 'completed' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#DCFCE7', color: '#166534', fontSize: '12px', fontWeight: '700', padding: '3px 9px', borderRadius: '999px' }}>
+                            <CheckCircle2 size={12} /> Completed
+                          </span>
+                        )}
+                      </div>
+                      {(st === 'overdue' || st === 'upcoming') && (
+                        <button
+                          onClick={() => markFollowUpDone(activeHistoryLead.id)}
+                          style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#DCFCE7', color: '#166534', border: 'none', fontSize: '13px', fontWeight: '700', padding: '7px 12px', borderRadius: '8px', cursor: 'pointer' }}
+                        >
+                          <CheckCircle2 size={14} /> Mark follow-up call completed
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               <h4 style={{ fontSize: '15px', color: '#0f172a', fontWeight: '700', marginBottom: '16px' }}>Change History & Logs</h4>
               {(!activeHistoryLead.history || activeHistoryLead.history.length === 0) ? (
                 <div style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
