@@ -1195,6 +1195,8 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const orderConfirmedLeads = projectRecords.filter(p => inSelectedRange(p.date || p.createdAt)).length;
   const junkLeads = rangeLeads.filter(l => l.status === 'JUNK').length;
   const lostDealLeads = rangeLeads.filter(l => l.status === 'LOST').length;
+  // Overdue = leads (excluding junk) whose scheduled follow-up date/time has passed.
+  const overdueLeads = rangeLeads.filter(l => !(l.status || '').toLowerCase().includes('junk') && getFollowUpState(l) === 'overdue').length;
 
   const filteredLeads = leadsData.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1204,7 +1206,11 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
     const matchesService = serviceFilter === 'All' || lead.services === serviceFilter;
     const matchesSource = sourceFilter === 'All' || lead.source === sourceFilter;
-    const matchesStatus = statusFilter === 'All' ? (lead.status !== 'JUNK' && lead.status !== 'LOST') : lead.status === statusFilter;
+    const matchesStatus = statusFilter === 'All'
+      ? (lead.status !== 'JUNK' && lead.status !== 'LOST')
+      : statusFilter === 'Overdue'
+        ? (!(lead.status || '').toLowerCase().includes('junk') && getFollowUpState(lead) === 'overdue')
+        : lead.status === statusFilter;
     const matchesAssignee = assigneeFilter === 'All' || lead.assignTo === assigneeFilter;
     const matchesDate = inSelectedRange(lead.date || lead.createdAt);
 
@@ -1416,20 +1422,20 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
         </div>
 
         <div
-          className={`lead-kpi-card orange-theme ${statusFilter === 'LOST' ? 'active-filter' : ''}`}
-          onClick={() => setStatusFilter('LOST')}
+          className={`lead-kpi-card pink-theme ${statusFilter === 'Overdue' ? 'active-filter' : ''}`}
+          onClick={() => setStatusFilter(statusFilter === 'Overdue' ? 'All' : 'Overdue')}
         >
           <div className="card-top">
             <div className="card-info">
-              <span className="card-label">Lost Deal</span>
-              <span className="card-value">{lostDealLeads}</span>
+              <span className="card-label">Overdue</span>
+              <span className="card-value">{overdueLeads}</span>
             </div>
             <div className="card-icon-box">
-              <XCircle size={20} />
+              <Clock size={20} />
             </div>
           </div>
           <div className="card-bottom">
-            <span className="card-subtext">Unsuccessful deals</span>
+            <span className="card-subtext">Follow-up passed</span>
           </div>
         </div>
       </div>
