@@ -29,6 +29,30 @@ const parseAmount = (v) => {
 };
 const quoteTotal = (q) => parseAmount(q.amount) + parseAmount(q.gst);
 const formatCompact = (n) => formatINRShort(n);
+
+// ── follow-up deadline parsing (must match LeadsManagement so the Overdue count
+// agrees with the Leads view for every stored format: ISO, "DD-MM-YYYY, hh:mm
+// AM/PM", and date-only which uses end-of-day 23:59 as the deadline). ──
+const _fuParse = (v) => {
+  if (!v || typeof v !== 'string') return null;
+  const s = v.trim();
+  if (s === 'No Date' || s === 'Pending' || s === '') return null;
+  let dPart = '', tPart = '', m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) { dPart = `${m[1]}-${m[2]}-${m[3]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{1,2}):(\d{2})\s*([AaPp][Mm])/))) { let h = parseInt(m[4], 10); const ap = m[6].toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${String(h).padStart(2, '0')}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{2}):(\d{2})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; tPart = `${m[4]}:${m[5]}`; }
+  else if ((m = s.match(/(\d{2})-(\d{2})-(\d{4})/))) { dPart = `${m[3]}-${m[2]}-${m[1]}`; }
+  else { const d = new Date(s); if (!isNaN(d.getTime())) { dPart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; tPart = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } }
+  if (!dPart) return null;
+  return { dPart, tPart };
+};
+const followUpMillis = (v) => {
+  const p = _fuParse(v);
+  if (!p) return null;
+  const ms = new Date(`${p.dPart}T${p.tPart || '23:59'}`).getTime();
+  return isNaN(ms) ? null : ms;
+};
 const invoiceStatus = (q) =>
   q.approvalStatus === 'Approved' && q.quotationStatus === 'Prepared' ? 'Received'
     : q.approvalStatus === 'Approved' ? 'Advance Received'
@@ -88,10 +112,12 @@ const Dashboard = ({ setActivePage }) => {
   const lostLeads = myLeads.filter((l) => statusHas(l, 'lost')).length;
   const junkLeads = myLeads.filter((l) => statusHas(l, 'junk')).length;
   const overdueFollowups = myLeads.filter((l) => {
+    // Overdue is derived from the CURRENT saved follow-up + completion only, so a
+    // rescheduled future follow-up clears it (never a stored old overdue state).
     if (l.followUpDone) return false;
     if (String(l.status || '').toLowerCase().includes('junk')) return false;
-    const t = new Date(l.followUp).getTime();
-    return !isNaN(t) && t < Date.now();
+    const t = followUpMillis(l.followUp);
+    return t != null && t < Date.now();
   }).length;
 
   // ── Appointment metrics ──

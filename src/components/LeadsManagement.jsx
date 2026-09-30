@@ -322,10 +322,20 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const loadLeads = () => {
     leadsApi.list()
       .then((data) => {
-        if (Array.isArray(data)) {
-          const mine = data.map(leadFromApi).filter((l) => (l.assignTo || '').trim().toLowerCase() === mgrKey);
-          setLeadsData(mine);
-        }
+        if (!Array.isArray(data)) return;
+        const mine = data.map(leadFromApi).filter((l) => (l.assignTo || '').trim().toLowerCase() === mgrKey);
+        setLeadsData((prev) => {
+          // No unsynced local edits -> adopt the server snapshot as-is.
+          if (dirtyRef.current.size === 0) return mine;
+          // Otherwise keep the LOCAL copy of any lead whose edit hasn't been
+          // confirmed written yet, so this refresh can't revert it.
+          const prevById = new Map(prev.map((l) => [l.id, l]));
+          const serverIds = new Set(mine.map((l) => l.id));
+          const merged = mine.map((sv) => (dirtyRef.current.has(sv.id) && prevById.has(sv.id)) ? prevById.get(sv.id) : sv);
+          // Re-add still-unsynced local leads the server snapshot doesn't include yet.
+          prev.forEach((l) => { if (dirtyRef.current.has(l.id) && !serverIds.has(l.id)) merged.unshift(l); });
+          return merged;
+        });
       })
       .catch((e) => console.error('Failed to load leads:', e))
       .finally(() => setLeadsLoaded(true));
@@ -337,11 +347,24 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   // coalesce into one final write and can't arrive out of order (which could let
   // a stale snapshot overwrite an assignment made by the Coordinator/Head).
   const bulkTimerRef = useRef(null);
+  // Ids of leads with LOCAL edits not yet confirmed written to the shared DB.
+  // The 20s auto-refresh (loadLeads) replaces local state with the server
+  // snapshot; if it lands before a just-made edit is persisted it would revert
+  // that edit (e.g. an Overdue follow-up rescheduled to a future date snapping
+  // back to Overdue). markDirty protects such leads from being overwritten by a
+  // refresh until their write is acknowledged.
+  const dirtyRef = useRef(new Set());
+  const markDirty = (id) => { if (id != null) dirtyRef.current.add(id); };
   React.useEffect(() => {
     if (!leadsLoaded) return;
     if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
     bulkTimerRef.current = setTimeout(() => {
-      leadsApi.bulk(leadsData.map(leadToApi)).catch((e) => console.error('Failed to sync leads:', e));
+      // Snapshot which ids this write covers; only clear those on success so
+      // edits made while the write is in flight stay protected.
+      const writingIds = new Set(dirtyRef.current);
+      leadsApi.bulk(leadsData.map(leadToApi))
+        .then(() => { writingIds.forEach((id) => dirtyRef.current.delete(id)); })
+        .catch((e) => console.error('Failed to sync leads:', e));
     }, 800);
     return () => { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); };
   }, [leadsData, leadsLoaded]);
@@ -350,6 +373,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
 
   const handleUpdateLeadField = (id, field, value) => {
+    markDirty(id);
     setLeadsData(prev => prev.map(lead => {
       if (lead.id === id) {
         if (lead[field] === value) return lead;
@@ -411,6 +435,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   // Record that the follow-up call was completed: clears Overdue, marks done.
   // Persists via the same bulk-sync effect used for every other lead edit here.
   const markFollowUpDone = (id) => {
+    markDirty(id);
     setLeadsData(prev => prev.map(lead => {
       if (lead.id !== id) return lead;
       const newHistory = lead.history ? [...lead.history] : [];
@@ -467,6 +492,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     }
 
     const completedAt = new Date().toLocaleString();
+    markDirty(fuLeadId);
     setLeadsData(prev => prev.map(lead => {
       if (lead.id !== fuLeadId) return lead;
       const history = lead.history ? [...lead.history] : [];
@@ -960,6 +986,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const handleWizardEditSave = (orig, data) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     const ts = `${new Date().toLocaleDateString('en-US', options)} - ${new Date().toLocaleTimeString()}`;
+    markDirty(orig.id);
     setLeadsData(prev => prev.map(l => {
       if (l.id !== orig.id) return l;
       const newHistory = l.history ? [...l.history] : [];
@@ -1052,6 +1079,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     }
     const realLeadId = (created && created.id) || '';
     const savedLead = { ...leadToAdd, id: (created && created._id) || Date.now(), leadId: realLeadId };
+    markDirty(savedLead.id);
     setLeadsData([savedLead, ...leadsData]);
 
     // If a Project Value was entered, also create a Sales Pipeline opportunity so it shows up there
@@ -1131,6 +1159,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     }
     const updated = { ...editingLead, history: newHistory };
     // 1) Reflect immediately in the UI
+    markDirty(updated.id);
     setLeadsData((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
     // 2) Persist this lead to the shared DB right away (don't rely only on the bulk-sync effect)
     leadsApi.update(updated.leadId, leadToApi(updated)).catch((err) => console.error('Failed to save lead:', err));
@@ -1141,6 +1170,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
   const handlePendingStatusSubmit = (e) => {
     e.preventDefault();
+    markDirty(pendingStatusChange && pendingStatusChange.id);
     setLeadsData(prev => prev.map(lead => {
       if (lead.id === pendingStatusChange.id) {
         const nextStatus = pendingStatusChange.status;
@@ -1225,6 +1255,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const confirmDeleteLead = () => {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
+    markDirty(id);
     setLeadsData(prev => prev.map(l => {
       if (l.id !== id) return l;
       const newHistory = l.history ? [...l.history] : [];
