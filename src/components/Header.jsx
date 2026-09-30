@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Bell, X, User, Menu } from 'lucide-react';
 import './Header.css';
-import { notificationsApi, clearSession } from '../api/client';
+import { notificationsApi, clearSession, getUser, setSession, getToken, authApi } from '../api/client';
 
 const timeAgo = (date) => {
   if (!date) return '';
@@ -23,6 +23,25 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
   // mgr_name stays the filtering key, so we never overwrite it with the display name.
   const managerName = (typeof localStorage !== 'undefined' && (localStorage.getItem('mgr_display_name') || localStorage.getItem('mgr_name'))) || 'Manager';
   const initials = managerName.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'M';
+
+  // Designation is the display role set by the Sales Head (Manager / Business
+  // Development Executive). Read from the stored user, then refreshed from the
+  // server so a change made by the Head reflects automatically on next load.
+  const [designation, setDesignation] = useState(() => (getUser()?.designation) || 'Sales Manager');
+  useEffect(() => {
+    let cancelled = false;
+    if (!getToken()) return;
+    authApi.me()
+      .then((res) => {
+        const u = res && res.user;
+        if (cancelled || !u) return;
+        if (u.designation) setDesignation(u.designation);
+        // Persist the refreshed user so other views see the latest designation.
+        try { setSession(getToken(), { ...(getUser() || {}), ...u }); } catch { /* ignore */ }
+      })
+      .catch(() => { /* keep stored value on transient errors */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Real, DB-backed notifications scoped to the logged-in manager (recipientName = mgr_name).
   const recipient = (typeof localStorage !== 'undefined' && localStorage.getItem('mgr_name')) || '';
@@ -248,7 +267,7 @@ const Header = ({ activePage = 'dashboard', sidebarOpen = true, setSidebarOpen =
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>{managerName}</span>
-            <span style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>Sales Manager</span>
+            <span style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>{designation}</span>
           </div>
 
           {isProfileDropdownOpen && (
