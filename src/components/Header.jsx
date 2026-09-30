@@ -7,7 +7,7 @@ import { notificationsApi, clearSession, getUser, setSession, getToken, authApi 
 // Development Executive, "Manager" otherwise. Display-only — access is unchanged.
 const roleLabel = (designation) =>
   String(designation || '').trim().toLowerCase() === 'business development executive'
-    ? 'BDE'
+    ? 'Business Development Executive'
     : 'Manager';
 
 const timeAgo = (date) => {

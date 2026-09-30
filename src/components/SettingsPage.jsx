@@ -9,7 +9,7 @@ import { getUser, setSession, getToken, authApi } from '../api/client';
 // "Manager". This is display-only — permissions and portal access are unchanged.
 const roleLabel = (designation) =>
   String(designation || '').trim().toLowerCase() === 'business development executive'
-    ? 'BDE'
+    ? 'Business Development Executive'
     : 'Manager';
 
 const SettingsPage = () => {
