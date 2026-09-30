@@ -257,14 +257,26 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const [leadsData, setLeadsData] = useState([]);
   const [leadsLoaded, setLeadsLoaded] = useState(false);
 
-  // Inline Notes editing (roomy multi-line textarea in place of a cramped prompt).
+  // Notes/Remarks popup: compact preview in the table, full editing/viewing in a modal.
   // Uses the same save path (handleUpdateLeadField) — no data/API/logic change.
-  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [notesModal, setNotesModal] = useState({ open: false, mode: 'view', leadId: null });
   const [editingNoteText, setEditingNoteText] = useState('');
-  const saveNoteInline = (id) => {
-    handleUpdateLeadField(id, 'notes', editingNoteText);
-    setEditingNoteId(null);
-    setEditingNoteText('');
+  const openNotesEdit = (lead) => { setEditingNoteText(lead.notes || ''); setNotesModal({ open: true, mode: 'edit', leadId: lead.id }); };
+  const openNotesView = (lead) => { setNotesModal({ open: true, mode: 'view', leadId: lead.id }); };
+  const closeNotesModal = () => setNotesModal({ open: false, mode: 'view', leadId: null });
+  const submitNotesEdit = () => { if (notesModal.leadId) handleUpdateLeadField(notesModal.leadId, 'notes', editingNoteText); closeNotesModal(); };
+  // Latest note metadata (date/time + salesperson) for the View modal, from the timeline.
+  const latestNoteMeta = (lead) => {
+    const hist = Array.isArray(lead && lead.history) ? lead.history : [];
+    const by = (lead && lead.assignTo && lead.assignTo !== 'Unassigned') ? lead.assignTo : '';
+    for (let i = hist.length - 1; i >= 0; i--) {
+      const h = hist[i] || {};
+      const msg = String(h.event || h.message || '');
+      if (h.meetingRemarks || h.remark || /note|remark/i.test(msg)) {
+        return { when: h.date || h.timestamp || '', by };
+      }
+    }
+    return { when: '', by };
   };
 
   // Real activity records so the overview cards reflect actual appointments / quotations /
@@ -1700,29 +1712,26 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     </td>
                     <td
                       className="notes-cell"
-                      style={{ minWidth: '240px', maxWidth: '320px', color: '#64748b', verticalAlign: 'top' }}
+                      style={{ maxWidth: '180px', color: '#64748b' }}
                       title={lead.notes || ''}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {editingNoteId === lead.id ? (
-                        <textarea
-                          autoFocus
-                          rows={3}
-                          value={editingNoteText}
-                          onChange={(e) => setEditingNoteText(e.target.value)}
-                          onBlur={() => saveNoteInline(lead.id)}
-                          placeholder="Type a remark…"
-                          style={{ width: '100%', minHeight: '68px', resize: 'vertical', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid #6366f1', outline: 'none', fontSize: '0.8125rem', lineHeight: 1.5, fontFamily: 'inherit', boxSizing: 'border-box' }}
-                        />
-                      ) : (
-                        <div
-                          onClick={() => { setEditingNoteId(lead.id); setEditingNoteText(lead.notes || ''); }}
-                          title="Click to edit notes"
-                          style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
-                        >
-                          <span style={{ flex: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{lead.notes || '-'}</span>
-                          <Edit3 size={12} style={{ color: '#94a3b8', flexShrink: 0, marginTop: '2px' }} className="cell-edit-icon" />
+                      {lead.notes ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start', maxWidth: '180px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '180px' }}>
+                            <span
+                              title="Edit remarks"
+                              onClick={() => openNotesEdit(lead)}
+                              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', maxWidth: '150px' }}
+                            >{lead.notes}</span>
+                            <Edit3 size={12} style={{ color: '#94a3b8', flexShrink: 0, cursor: 'pointer' }} className="cell-edit-icon" onClick={() => openNotesEdit(lead)} />
+                          </div>
+                          <button type="button" onClick={() => openNotesView(lead)} style={{ background: 'none', border: 'none', padding: 0, color: '#6366f1', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>View More</button>
                         </div>
+                      ) : (
+                        <button type="button" onClick={() => openNotesEdit(lead)} title="Add remarks" style={{ background: 'none', border: '1px dashed #cbd5e1', borderRadius: '6px', padding: '0.2rem 0.5rem', color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <Edit3 size={12} /> Add
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -2631,6 +2640,50 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
           </div>
         </div>
       )}
+
+      {/* Notes / Remarks popup — comfortable editing + full-text viewing */}
+      {notesModal.open && (() => {
+        const nlead = leadsData.find((l) => l.id === notesModal.leadId);
+        const meta = nlead ? latestNoteMeta(nlead) : { when: '', by: '' };
+        return (
+          <div onClick={closeNotesModal} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '12px', width: 'min(560px, 94vw)', maxHeight: '85vh', overflow: 'auto', padding: '1.25rem 1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#0f172a' }}>{notesModal.mode === 'edit' ? 'Edit Remarks' : 'Client Remarks'}</h3>
+                <button onClick={closeNotesModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'inline-flex' }}><X size={18} /></button>
+              </div>
+              {notesModal.mode === 'edit' ? (
+                <>
+                  <textarea
+                    autoFocus
+                    value={editingNoteText}
+                    onChange={(e) => setEditingNoteText(e.target.value)}
+                    placeholder="Type the complete remarks here…"
+                    rows={8}
+                    style={{ width: '100%', minHeight: '180px', resize: 'vertical', padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', lineHeight: 1.6, fontFamily: 'inherit', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button onClick={closeNotesModal} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                    <button onClick={submitNotesEdit} style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: '0.92rem', lineHeight: 1.6, color: '#1e293b', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.8rem 0.9rem', minHeight: '80px' }}>{(nlead && nlead.notes) || '—'}</div>
+                  <div style={{ marginTop: '0.9rem', fontSize: '0.8rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {meta.by ? <div><strong>Salesperson:</strong> {meta.by}</div> : null}
+                    {meta.when ? <div><strong>Date/Time:</strong> {meta.when}</div> : null}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button onClick={() => nlead && openNotesEdit(nlead)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                    <button onClick={closeNotesModal} style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Close</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
