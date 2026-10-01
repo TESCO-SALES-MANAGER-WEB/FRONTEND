@@ -117,7 +117,7 @@ const Dashboard = ({ setActivePage }) => {
     if (l.followUpDone) return false;
     if (String(l.status || '').toLowerCase().includes('junk')) return false;
     const t = followUpMillis(l.followUp);
-    return t != null && t < Date.now();
+    return t == null || t < Date.now(); // no scheduled follow-up OR past deadline → Overdue
   }).length;
 
   // ── Appointment metrics ──

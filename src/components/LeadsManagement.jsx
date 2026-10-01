@@ -413,7 +413,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     if (!lead) return 'none';
     if (lead.followUpDone) return 'completed';
     const ms = followUpMillis(lead.followUp);
-    if (ms == null) return 'none';
+    if (ms == null) return 'overdue'; // no scheduled follow-up date → treat as Overdue
     return ms < nowTick ? 'overdue' : 'upcoming';
   };
 
