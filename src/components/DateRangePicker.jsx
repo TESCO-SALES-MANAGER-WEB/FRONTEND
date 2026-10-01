@@ -1,230 +1,146 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import './DateRangePicker.css';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compact From / To date filter (same UX as the other SalesCRM apps).
+//   • Two small fields: "From: <date> 📅" and "To: <date> 📅".
+//   • Clicking either field opens a small single-month calendar.
+//   • Quick ranges kept as chips at the top of the calendar popover.
+// CONTRACT UNCHANGED: props { fromDate, toDate, onApply } where fromDate/toDate are
+// "DD/MM/YYYY" strings and onApply(fromStr, toStr) emits "DD/MM/YYYY" — so the parent's
+// existing filtering/calculations keep working exactly as before.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const PRESETS = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'This Month'];
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+// Parse "DD/MM/YYYY" or "YYYY-MM-DD" to a Date (falls back to today).
+const parseStr = (str) => {
+  if (!str) return startOfDay(new Date());
+  if (String(str).includes('/')) { const [d, m, y] = str.split('/'); return startOfDay(new Date(+y, +m - 1, +d)); }
+  const [y, m, d] = String(str).split('-'); return startOfDay(new Date(+y, +m - 1, +d));
+};
+// Format a Date to "DD/MM/YYYY" (the contract the parent expects).
+const fmtStr = (date) => {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${d}/${m}/${date.getFullYear()}`;
+};
+// Pretty display for the field.
+const fmtDisplay = (date) => date ? `${date.toLocaleString('en-US', { month: 'short' })} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()}` : '—';
 
 const DateRangePicker = ({ fromDate, toDate, onApply }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [openField, setOpenField] = useState(null); // null | 'from' | 'to'
   const containerRef = useRef(null);
 
-  // Helper to parse "DD/MM/YYYY" or "YYYY-MM-DD" to Date
-  const parseDateString = (str) => {
-    if (!str) return new Date();
-    if (str.includes('/')) {
-      const [d, m, y] = str.split('/');
-      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    }
-    const [y, m, d] = str.split('-');
-    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-  };
+  const [startDate, setStartDate] = useState(parseStr(fromDate));
+  const [endDate, setEndDate] = useState(parseStr(toDate));
+  const [viewMonth, setViewMonth] = useState(startOfDay(new Date()));
 
-  // Helper to format Date to "DD/MM/YYYY"
-  const formatDateToString = (date) => {
-    if (!date) return '';
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
-  };
+  // Keep internal state in sync when the parent changes the controlled props.
+  useEffect(() => { if (fromDate) setStartDate(parseStr(fromDate)); }, [fromDate]);
+  useEffect(() => { if (toDate) setEndDate(parseStr(toDate)); }, [toDate]);
 
-  const [startDate, setStartDate] = useState(parseDateString(fromDate));
-  const [endDate, setEndDate] = useState(parseDateString(toDate));
-  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); // Default to the current month
-  const [activePreset, setActivePreset] = useState('Last 30 Days');
-  const [hoverDate, setHoverDate] = useState(null);
-
-  // Sync prop changes
   useEffect(() => {
-    if (fromDate) setStartDate(parseDateString(fromDate));
-    if (toDate) setEndDate(parseDateString(toDate));
-  }, [fromDate, toDate]);
-
-  // Click outside to close
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const onDoc = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpenField(null); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const handlePresetClick = (preset) => {
-    setActivePreset(preset);
-    const today = new Date(); today.setHours(0, 0, 0, 0); // Real current date
-    let start = new Date(today);
-    let end = new Date(today);
+  // Emit using the SAME string contract as before.
+  const emit = (s, e) => { if (typeof onApply === 'function') onApply(fmtStr(s), fmtStr(e)); };
 
-    switch (preset) {
-      case 'Today':
-        break;
-      case 'Yesterday':
-        start.setDate(today.getDate() - 1);
-        end.setDate(today.getDate() - 1);
-        break;
-      case 'Last 7 Days':
-        start.setDate(today.getDate() - 6);
-        break;
-      case 'Last 30 Days':
-        start.setDate(today.getDate() - 29);
-        break;
-      case 'This Month':
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        break;
-      case 'Custom':
-        return; // Don't auto-apply custom, let user select
-      default:
-        break;
-    }
-
-    setStartDate(start);
-    setEndDate(end);
-    setCurrentMonth(new Date(start.getFullYear(), start.getMonth(), 1));
+  const openCalendar = (field) => {
+    setOpenField((cur) => (cur === field ? null : field));
+    setViewMonth(startOfDay((field === 'to' ? endDate : startDate) || new Date()));
   };
 
-  const handlePrevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  const applyPreset = (preset) => {
+    const today = startOfDay(new Date());
+    let s = today, e = today;
+    if (preset === 'Today') { s = today; e = today; }
+    else if (preset === 'Yesterday') { const y = new Date(today); y.setDate(y.getDate() - 1); s = y; e = y; }
+    else if (preset === 'Last 7 Days') { const a = new Date(today); a.setDate(a.getDate() - 6); s = a; e = today; }
+    else if (preset === 'Last 30 Days') { const a = new Date(today); a.setDate(a.getDate() - 29); s = a; e = today; }
+    else if (preset === 'This Month') { s = new Date(today.getFullYear(), today.getMonth(), 1); e = new Date(today.getFullYear(), today.getMonth() + 1, 0); }
+    setStartDate(s); setEndDate(e); emit(s, e); setOpenField(null);
   };
 
-  const handleNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  const handleDayClick = (dayNum) => {
+    const clicked = startOfDay(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), dayNum));
+    let s = startDate, e = endDate;
+    if (openField === 'to') { e = clicked; if (s && clicked < s) s = clicked; }
+    else { s = clicked; if (e && clicked > e) e = clicked; }
+    setStartDate(s); setEndDate(e); emit(s, e); setOpenField(null);
   };
 
-  const handleDayClick = (day) => {
-    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    setActivePreset('Custom');
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const slots = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
-    if (!startDate || (startDate && endDate)) {
-      setStartDate(clickedDate);
-      setEndDate(null);
-    } else {
-      if (clickedDate < startDate) {
-        setStartDate(clickedDate);
-        setEndDate(null);
-      } else {
-        setEndDate(clickedDate);
-      }
-    }
+  const field = { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', border: '1px solid #E5E9F0', borderRadius: '0.6rem', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', color: '#1F2937', minWidth: 150, justifyContent: 'space-between', fontFamily: 'inherit' };
+  const fieldLabel = { fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: '#94A3B8' };
+  const popover = { position: 'absolute', top: 'calc(100% + 6px)', zIndex: 1000, background: '#fff', border: '1px solid #E5E9F0', borderRadius: '0.8rem', boxShadow: '0 12px 32px rgba(15,23,42,0.16)', padding: '0.75rem', width: 260 };
+
+  const dayCellStyle = (dayNum) => {
+    const base = { height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', borderRadius: '0.45rem', cursor: 'pointer', color: '#334155', userSelect: 'none' };
+    if (!dayNum) return { ...base, visibility: 'hidden', cursor: 'default' };
+    const d = startOfDay(new Date(year, month, dayNum));
+    const isStart = startDate && d.getTime() === startDate.getTime();
+    const isEnd = endDate && d.getTime() === endDate.getTime();
+    const inRange = startDate && endDate && d > startDate && d < endDate;
+    if (isStart || isEnd) return { ...base, background: '#4f46e5', color: '#fff', fontWeight: 700 };
+    if (inRange) return { ...base, background: '#EEF2FF', color: '#4338CA' };
+    return base;
   };
 
-  const handleApply = () => {
-    if (onApply) {
-      onApply(formatDateToString(startDate), formatDateToString(endDate || startDate));
-    }
-    setIsOpen(false);
-  };
-
-  // Generate calendar grid days
-  const getDays = () => {
-    const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-    const firstDayIndex = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-    const days = [];
-
-    // Empty cells before month start
-    for (let i = 0; i < firstDayIndex; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-    }
-
-    // Days in current month
-    for (let d = 1; d <= daysInMonth; d++) {
-      const curDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
-      
-      let classNames = 'calendar-day';
-      const isStart = startDate && curDate.getTime() === startDate.getTime();
-      const isEnd = endDate && curDate.getTime() === endDate.getTime();
-      
-      let isInRange = false;
-      if (startDate && endDate) {
-        isInRange = curDate > startDate && curDate < endDate;
-      } else if (startDate && hoverDate) {
-        isInRange = curDate > startDate && curDate <= hoverDate;
-      }
-
-      if (isStart) classNames += ' range-start';
-      if (isEnd) classNames += ' range-end';
-      if (isInRange) classNames += ' in-range';
-
-      // Highlight the real "today" when no date in that cell is selected
-      const _now = new Date();
-      const isToday = curDate.getDate() === _now.getDate() && curDate.getMonth() === _now.getMonth() && curDate.getFullYear() === _now.getFullYear();
-      if (isToday && !isStart && !isEnd && !isInRange) {
-        classNames += ' today-marker';
-      }
-
-      days.push(
-        <div
-          key={d}
-          className={classNames}
-          onClick={() => handleDayClick(d)}
-          onMouseEnter={() => startDate && !endDate && setHoverDate(curDate)}
-        >
-          <span>{d}</span>
-        </div>
-      );
-    }
-
-    return days;
-  };
-
-  const presets = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'This Month', 'Custom'];
+  const renderCalendar = () => (
+    <div style={popover} onClick={(e) => e.stopPropagation()}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
+        {PRESETS.map((p) => (
+          <button key={p} type="button" onClick={() => applyPreset(p)} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.25rem 0.5rem', borderRadius: '999px', border: '1px solid #E5E9F0', background: '#F8FAFC', color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>{p}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+        <button type="button" onClick={() => setViewMonth(new Date(year, month - 1, 1))} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', padding: 4 }}><ChevronLeft size={16} /></button>
+        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111827' }}>{MONTHS[month]} {year}</div>
+        <button type="button" onClick={() => setViewMonth(new Date(year, month + 1, 1))} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', padding: 4 }}><ChevronRight size={16} /></button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 2 }}>
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((w) => (<div key={w} style={{ height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.68rem', fontWeight: 700, color: '#94A3B8' }}>{w}</div>))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {slots.map((dayNum, idx) => (<div key={idx} style={dayCellStyle(dayNum)} onClick={() => dayNum && handleDayClick(dayNum)}>{dayNum || ''}</div>))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="date-range-picker-container" ref={containerRef}>
-      {/* Trigger Button bar matching page overview layout */}
-      <div className="picker-trigger-bar" onClick={() => setIsOpen(!isOpen)}>
-        <span className="trigger-label">From</span>
-        <span className="trigger-value">{formatDateToString(startDate)}</span>
-        <span className="trigger-label">To</span>
-        <span className="trigger-value">{formatDateToString(endDate || startDate)}</span>
-        <Calendar size={15} className="trigger-calendar-icon" />
-      </div>
-
-      {isOpen && (
-        <div className="picker-dropdown-overlay">
-          <div className="picker-presets-sidebar">
-            {presets.map((preset) => (
-              <button
-                key={preset}
-                className={`preset-item ${activePreset === preset ? 'active' : ''}`}
-                onClick={() => handlePresetClick(preset)}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-
-          <div className="picker-calendar-view">
-            <div className="picker-calendar-header">
-              <button onClick={handlePrevMonth} className="month-nav-btn">
-                <ChevronLeft size={16} />
-              </button>
-              <span className="month-year-label">
-                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </span>
-              <button onClick={handleNextMonth} className="month-nav-btn">
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            <div className="picker-days-grid">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                <div key={day} className="day-header">{day}</div>
-              ))}
-              {getDays()}
-            </div>
-
-            <div className="picker-footer-actions">
-              <button className="picker-cancel-btn" onClick={() => setIsOpen(false)}>
-                Cancel
-              </button>
-              <button className="picker-apply-btn" onClick={handleApply}>
-                Apply
-              </button>
-            </div>
-          </div>
+    <div ref={containerRef} style={{ display: 'inline-flex', gap: '0.6rem', position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <div style={field} onClick={() => openCalendar('from')}>
+          <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.2 }}>
+            <span style={fieldLabel}>From</span>
+            <span style={{ fontWeight: 600 }}>{fmtDisplay(startDate)}</span>
+          </span>
+          <CalendarIcon size={15} color="#64748B" />
         </div>
-      )}
+        {openField === 'from' && renderCalendar()}
+      </div>
+      <div style={{ position: 'relative' }}>
+        <div style={field} onClick={() => openCalendar('to')}>
+          <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.2 }}>
+            <span style={fieldLabel}>To</span>
+            <span style={{ fontWeight: 600 }}>{fmtDisplay(endDate || startDate)}</span>
+          </span>
+          <CalendarIcon size={15} color="#64748B" />
+        </div>
+        {openField === 'to' && renderCalendar()}
+      </div>
     </div>
   );
 };
