@@ -21,6 +21,12 @@ export default function Login({ onAuthenticated }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  // This portal serves both Managers and Business Development Executives. Both are the
+  // SAME backend role ('Sales Manager') distinguished by the account's `designation`.
+  // The selected option is sent to the backend, which verifies the email/password belong
+  // to an account with that designation — so a user cannot log in under the wrong role.
+  const ROLE_OPTIONS = ['Manager', 'Business Development Executive'];
+  const [selectedRole, setSelectedRole] = useState('Manager');
 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -43,7 +49,9 @@ export default function Login({ onAuthenticated }) {
     setError(''); setNotice('');
     if (!email || !password) { setError('Please fill in all fields'); return; }
     try {
-      const data = await authApi.login(APP_ROLE, email, password);
+      // APP_ROLE is the backend role for both options; selectedRole is the DESIGNATION
+      // (Manager / Business Development Executive) the backend validates the account against.
+      const data = await authApi.login(APP_ROLE, email, password, selectedRole);
       if (data.user?.role && data.user.role !== APP_ROLE) {
         clearSession();
         setBlockedMsg('This portal is for Sales Managers only. Please use your role’s application.');
@@ -208,7 +216,15 @@ export default function Login({ onAuthenticated }) {
                     <div>
                       <label style={labelStyle}>Role</label>
                       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <div style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}>{APP_ROLE}</div>
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '0.5rem', border: '1px solid #CBD5E1', backgroundColor: '#F1F5F9', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', cursor: 'pointer' }}
+                          onFocus={onFocus}
+                          onBlur={onBlur}
+                        >
+                          {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
                         <ShieldCheck size={16} color={ACCENT} style={{ position: 'absolute', right: 12, pointerEvents: 'none' }} />
                       </div>
                     </div>

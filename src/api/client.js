@@ -90,8 +90,8 @@ export const teamApi = resource('team');
    This app always logs in as "Sales Manager" — the role is fixed by the caller
    (Login.jsx passes APP_ROLE), never chosen by the user. */
 export const authApi = {
-  login: (role, email, password) =>
-    api('/auth/login', { method: 'POST', body: { role, email, password } }),
+  login: (role, email, password, designation) =>
+    api('/auth/login', { method: 'POST', body: { role, email, password, ...(designation ? { designation } : {}) } }),
   logout: () => api('/auth/logout', { method: 'POST', auth: true }),
   forgotPassword: (email) =>
     api('/auth/forgot-password', { method: 'POST', body: { email } }),
