@@ -4,6 +4,7 @@ import { paymentsApi, leadsApi, projectsApi, managersApi } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR as formatINRShared, formatINRShort } from '../utils/currency';
+import DateRangePicker from './DateRangePicker';
 
 const PER_PAGE = 8;
 const METHODS = ['Bank Transfer', 'Cheque', 'Cash', 'UPI', 'Card', 'Other'];
@@ -132,7 +133,9 @@ const Payments = () => {
     return () => { alive = false; };
   }, []);
 
-  const [rangeKey, setRangeKey] = useState('all');
+  // From/To date filter (ISO "YYYY-MM-DD"); empty = All Time (unchanged default behaviour)
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -180,8 +183,17 @@ const Payments = () => {
   const leadHasPayment = (leadId) => payments.some((p) => p.leadId === leadId);
   const eligibleLeads = leads.filter((l) => (l.manager || '').trim() === mgrName && leadHasOrderConfirmed(l.id) && !leadHasPayment(l.id));
 
-  const rangeDays = RANGE_OPTIONS.find((o) => o.key === rangeKey)?.days;
-  const start = rangeStart(rangeDays);
+  // From/To ISO filter — empty bounds mean no date window (All Time).
+  const inDateRange = (v) => {
+    if (!fromDate || !toDate) return true;
+    const t = new Date(v).getTime();
+    if (isNaN(t)) return true; // undated records are never hidden
+    const sp = String(fromDate).split('-').map(Number);
+    const ep = String(toDate).split('-').map(Number);
+    const s = new Date(sp[0], sp[1] - 1, sp[2], 0, 0, 0, 0);
+    const e = new Date(ep[0], ep[1] - 1, ep[2], 23, 59, 59, 999);
+    return t >= s.getTime() && t <= e.getTime();
+  };
 
   // Access control: a manager only sees payments for THEIR OWN assigned leads. The payments
   // collection is shared, so scope to this manager (by the payment's manager or its lead).
@@ -196,10 +208,9 @@ const Payments = () => {
 
   // Rows after date range — drives the KPI totals
   const scoped = useMemo(() => mine.filter((p) => {
-    const created = p.createdAt ? new Date(p.createdAt) : null;
-    if (start && created && created < start) return false;
+    if (!inDateRange(p.createdAt)) return false;
     return true;
-  }), [mine, start]);
+  }), [mine, fromDate, toDate]);
 
   const kpis = useMemo(() => {
     const sum = (key) => scoped.reduce((s, p) => s + (Number(p[key]) || 0), 0);
@@ -215,7 +226,7 @@ const Payments = () => {
     return true;
   }), [scoped, statusFilter, search]);
 
-  useEffect(() => { setPage(1); }, [rangeKey, statusFilter, search]);
+  useEffect(() => { setPage(1); }, [fromDate, toDate, statusFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -608,13 +619,15 @@ const Payments = () => {
             </select>
             <ChevronDown size={16} style={{ position: 'absolute', right: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           </div>
-          <div style={{ position: 'relative' }}>
-            <Calendar size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <select value={rangeKey} onChange={(e) => setRangeKey(e.target.value)} style={{ ...selectStyle, paddingLeft: '2.4rem' }}>
-              {RANGE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.days ? o.label : 'Date Range'}</option>)}
-            </select>
-            <ChevronDown size={16} style={{ position: 'absolute', right: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          </div>
+          <DateRangePicker
+            fromDate={fromDate}
+            toDate={toDate}
+            onApply={(from, to) => {
+              const toISO = (s) => { const [d, m, y] = s.split('/'); return `${y}-${m}-${d}`; };
+              setFromDate(toISO(from));
+              setToDate(toISO(to));
+            }}
+          />
         </div>
 
         <div style={{ overflowX: 'auto' }}>
