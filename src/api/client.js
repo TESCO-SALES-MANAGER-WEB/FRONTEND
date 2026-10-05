@@ -57,7 +57,7 @@ export async function api(path, { method = 'GET', body, auth = false } = {}) {
 
 // Convenience helpers per collection
 const resource = (name) => ({
-  list: () => api(`/${name}`),
+  list: (qs = '') => api(`/${name}${qs}`),
   create: (body) => api(`/${name}`, { method: 'POST', body }),
   bulk: (arr) => api(`/${name}/bulk`, { method: 'POST', body: arr }),
   update: (id, body) => api(`/${name}/${id}`, { method: 'PUT', body }),

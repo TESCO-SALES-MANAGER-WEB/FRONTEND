@@ -74,7 +74,7 @@ const Dashboard = ({ setActivePage }) => {
   const [payments, setPayments] = useState([]); // Payment Collection records (same source as the page)
 
   const loadAll = () => {
-    leadsApi.list().then((d) => Array.isArray(d) && setLeads(d)).catch((e) => console.error(e));
+    leadsApi.list('?light=1').then((d) => Array.isArray(d) && setLeads(d)).catch((e) => console.error(e));
     quotationsApi.list().then((d) => Array.isArray(d) && setQuotes(d)).catch((e) => console.error(e));
     appointmentsApi.list().then((d) => Array.isArray(d) && setAppointments(d)).catch((e) => console.error(e));
     projectsApi.list().then((d) => Array.isArray(d) && setProjects(d)).catch((e) => console.error(e));

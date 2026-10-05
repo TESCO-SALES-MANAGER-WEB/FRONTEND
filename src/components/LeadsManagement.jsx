@@ -3,7 +3,7 @@ import {
   Users, Sparkles, Flame, Thermometer, Snowflake, Calendar,
   FileText, Edit3, CheckCircle, Trash2, Search, Filter, Plus,
   ChevronDown, X, CalendarCheck, UserPlus, XCircle, Activity, Download,
-  Phone, CheckCircle2, Clock
+  Phone, CheckCircle2, Clock, UserX
 } from 'lucide-react';
 import './LeadsManagement.css';
 
@@ -1292,6 +1292,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const hotLeads = rangeLeads.filter(l => l.status === 'HOT').length;
   const warmLeads = rangeLeads.filter(l => l.status === 'WARM').length;
   const coldLeads = rangeLeads.filter(l => l.status === 'COLD').length;
+  const unassignedLeads = rangeLeads.filter(l => !l.assignTo || String(l.assignTo).toLowerCase() === 'unassigned').length;
   // ── Record-based counts (match the Manager Dashboard) ──
   // Appt. Fixed = this manager's scheduled appointments (site visits excluded)
   const myApptRecords = apptRecords.filter(a => (a.manager || '').trim().toLowerCase() === mgrKey);
@@ -1367,6 +1368,19 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
       {/* Grid of 10 Cards to match screenshot */}
       <div className="leads-cards-grid">
+        <div
+          className={`lead-kpi-card slate-theme ${assigneeFilter === 'Unassigned' ? 'active-filter' : ''}`}
+          onClick={() => setAssigneeFilter(assigneeFilter === 'Unassigned' ? 'All' : 'Unassigned')}
+        >
+          <div className="card-top">
+            <div className="card-info">
+              <span className="card-label">Unassigned Leads</span>
+              <span className="card-value">{unassignedLeads}</span>
+            </div>
+            <div className="card-icon-box"><UserX size={20} /></div>
+          </div>
+          <div className="card-bottom"><span className="card-subtext">Not yet assigned</span></div>
+        </div>
         <div 
           className={`lead-kpi-card purple-theme ${statusFilter === 'All' ? 'active-filter' : ''}`}
           onClick={() => setStatusFilter('All')}
@@ -1554,6 +1568,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
         <table className="leads-mock-table">
           <thead>
             <tr>
+              <th>S.No.</th>
               <th>Date</th>
               <th>Lead ID</th>
               <th>Customer Name</th>
@@ -1615,7 +1630,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredLeads.map(lead => {
+            {filteredLeads.map((lead, idx) => {
               const isCurrentActive = activeHistoryLead?.id === lead.id;
               return (
                 <React.Fragment key={lead.id}>
@@ -1624,6 +1639,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     onClick={() => setActiveHistoryLead(isCurrentActive ? null : lead)}
                     style={{ cursor: 'pointer' }}
                   >
+                    <td className="date-cell">{idx + 1}</td>
                     <td className="date-cell">{lead.date}</td>
                     <td className="lead-id-cell">{lead.leadId}</td>
                     <td className="customer-name-cell"><strong>{lead.name}</strong></td>
