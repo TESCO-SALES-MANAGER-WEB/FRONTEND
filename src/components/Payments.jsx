@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, XCircle, Plus, Calendar, ChevronDown, X, Search, Eye, Pencil, CreditCard, Download, FileText, Upload, Bell, StickyNote, Save, ListChecks } from 'lucide-react';
-import { paymentsApi, leadsApi, projectsApi, managersApi, isMine, fetchMyLeadsPage } from '../api/client';
-import LeadPicker from './LeadPicker';
+import { paymentsApi, leadsApi, projectsApi, managersApi, isMine, validateLeadAccess } from '../api/client';
+import LeadIdInput from './LeadIdInput';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR as formatINRShared, formatINRShort } from '../utils/currency';
@@ -731,12 +731,13 @@ const Payments = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
                   <div>
                     <label style={labelStyle}>Lead ID</label>
-                    <LeadPicker
-                      placeholder="Select Lead ID"
+                    <LeadIdInput
+                      placeholder="e.g. LD-0001"
                       disabled={readOnly}
-                      initialLabel={form.leadId}
-                      fetchPage={fetchMyLeadsPage}
-                      onSelect={(lead) => onLeadChange(lead)}
+                      value={form.leadId}
+                      validate={validateLeadAccess}
+                      onChange={(id) => setForm((prev) => ({ ...prev, leadId: id }))}
+                      onResolved={(lead) => { if (lead) onLeadChange(lead); }}
                     />
                   </div>
                   <div>

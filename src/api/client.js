@@ -94,6 +94,26 @@ export const fetchMyLeadsPage = ({ q = '', offset = 0, limit = 10 } = {}) => {
     + (mine ? `&mine=${encodeURIComponent(mine)}` : '');
   return leadsApi.list(qs).then((d) => (Array.isArray(d) ? d : [])).catch(() => []);
 };
+// Lightweight single-lead validation for the manual Lead ID input. Reads ONE lead by id
+// (never the whole list) and enforces the SAME assignment rule as every list: a Manager
+// may only use a lead assigned to them. Returns { status: 'ok'|'notfound'|'noaccess'|'error', lead }.
+export const validateLeadAccess = async (id) => {
+  const key = String(id || '').trim();
+  if (!key) return { status: 'notfound' };
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/leads/${encodeURIComponent(key)}`, {
+      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+    });
+  } catch { return { status: 'error' }; }
+  if (res.status === 404) return { status: 'notfound' };
+  if (!res.ok) return { status: 'error' };
+  const d = await res.json().catch(() => null);
+  if (!d || !d.id) return { status: 'notfound' };
+  if (!isMine(d.manager)) return { status: 'noaccess' };
+  return { status: 'ok', lead: d };
+};
+
 export const quotationsApi = resource('quotations');
 export const appointmentsApi = resource('appointments');
 export const projectsApi = resource('projects');

@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import './AppointmentsVisits.css';
 import DateRangePicker from './DateRangePicker';
-import { appointmentsApi, leadsApi, isMine, fetchMyLeadsPage } from '../api/client';
-import LeadPicker from './LeadPicker';
+import { appointmentsApi, leadsApi, isMine, validateLeadAccess } from '../api/client';
+import LeadIdInput from './LeadIdInput';
 import { notify } from '../utils/notify';
 
 // Local-time YYYY-MM-DD (never toISOString — that shifts to UTC and moves IST dates back a day)
@@ -1075,13 +1075,14 @@ const AppointmentsVisits = () => {
 
             <div className="form-group">
               <label>Customer Name</label>
-              <LeadPicker
-                placeholder="Select customer"
-                initialLabel={newLeadId}
-                fetchPage={fetchMyLeadsPage}
-                onSelect={(lead) => {
-                  setNewLeadId(lead ? lead.id : '');
-                  setNewCustomerName(lead ? (lead.name || '') : '');
+              <LeadIdInput
+                placeholder="e.g. LD-0001"
+                value={newLeadId}
+                validate={validateLeadAccess}
+                onChange={(id) => setNewLeadId(id)}
+                onResolved={(lead) => {
+                  if (lead) { setNewLeadId(lead.id); setNewCustomerName(lead.name || ''); }
+                  else { setNewCustomerName(''); }
                 }}
               />
             </div>

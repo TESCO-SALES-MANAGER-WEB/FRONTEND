@@ -10,8 +10,8 @@ import {
   FileUp
 } from 'lucide-react';
 import './Quotations.css';
-import { quotationsApi, leadsApi, appointmentsApi, api, isMine, fetchMyLeadsPage } from '../api/client';
-import LeadPicker from './LeadPicker';
+import { quotationsApi, leadsApi, appointmentsApi, api, isMine, validateLeadAccess } from '../api/client';
+import LeadIdInput from './LeadIdInput';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 
@@ -476,11 +476,12 @@ const Quotations = () => {
             <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>Lead ID</label>
-                <LeadPicker
-                  placeholder="Select Lead ID"
-                  initialLabel={form.leadId}
-                  fetchPage={fetchMyLeadsPage}
-                  onSelect={(lead) => onLeadSelect(lead)}
+                <LeadIdInput
+                  placeholder="e.g. LD-0001"
+                  value={form.leadId}
+                  validate={validateLeadAccess}
+                  onChange={(id) => setForm((f) => ({ ...f, leadId: id }))}
+                  onResolved={(lead) => { if (lead) onLeadSelect(lead); }}
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
