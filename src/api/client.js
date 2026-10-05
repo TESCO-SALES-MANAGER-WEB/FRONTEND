@@ -83,6 +83,17 @@ const resource = (name) => ({
 });
 
 export const leadsApi = resource('leads');
+
+// Paginated + searchable fetch of ONLY the logged-in manager's leads, for the fast
+// Lead ID picker. Passes every assignment key (name/email/employeeId) via ?mine so the
+// server returns leads assigned under any of them. Returns an array (never throws).
+export const fetchMyLeadsPage = ({ q = '', offset = 0, limit = 10 } = {}) => {
+  const mine = myAssignmentKeys().join(',');
+  const qs = `?limit=${limit}&offset=${offset}`
+    + (q ? `&q=${encodeURIComponent(q)}` : '')
+    + (mine ? `&mine=${encodeURIComponent(mine)}` : '');
+  return leadsApi.list(qs).then((d) => (Array.isArray(d) ? d : [])).catch(() => []);
+};
 export const quotationsApi = resource('quotations');
 export const appointmentsApi = resource('appointments');
 export const projectsApi = resource('projects');

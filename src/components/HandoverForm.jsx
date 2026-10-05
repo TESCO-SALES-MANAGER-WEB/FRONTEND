@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, X, FileText, Calendar, Settings } from 'lucide-react';
-import { projectsApi, leadsApi } from '../api/client';
+import { projectsApi, leadsApi, fetchMyLeadsPage } from '../api/client';
+import LeadPicker from './LeadPicker';
 import { notify } from '../utils/notify';
 
 const parseAmount = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, '')); return Number.isNaN(n) ? 0 : n; };
@@ -125,13 +126,12 @@ const HandoverForm = ({ record, fileId, leads = [], isLeadOrdered, onCancel, onS
   const percentageValid = Math.abs(totalPercentage - 100) <= 0.01; // ~0.01 rounding tolerance
 
   // Selecting a Lead ID autofills the client/project details from that lead
-  const onLeadIdChange = (val) => {
-    const lead = leads.find((l) => l.id === val);
+  const onLeadIdChange = (lead) => {
     setForm((prev) => {
       const quotedPrice = (lead?.budget != null && lead.budget !== '') ? String(parseAmount(lead.budget)) : prev.quotedPrice;
       return {
         ...prev,
-        leadId: val,
+        leadId: lead ? lead.id : '',
         clientName: lead?.name || prev.clientName,
         projectLocation: lead?.appointmentLocation || lead?.location || prev.projectLocation,
         typeOfProject: lead?.projectType || lead?.services || prev.typeOfProject,
@@ -215,13 +215,14 @@ const HandoverForm = ({ record, fileId, leads = [], isLeadOrdered, onCancel, onS
         <SectionHeader icon={FileText} title="1. Client & Project Details" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem 1.5rem' }}>
           <Field label="Lead ID" required>
-            <select style={inputStyle} required value={form.leadId} onChange={(e) => onLeadIdChange(e.target.value)} disabled={isEdit}>
-              <option value="">Select Lead ID</option>
-              {leads.map((l) => (
-                <option key={l.id} value={l.id}>{l.name ? `${l.id} — ${l.name}` : l.id}</option>
-              ))}
-              {!isEdit && leads.length === 0 && <option value="" disabled>No leads with an approved quotation awaiting order confirmation</option>}
-            </select>
+            <LeadPicker
+              placeholder="Select Lead ID"
+              disabled={isEdit}
+              initialLabel={form.leadId}
+              inputStyle={inputStyle}
+              fetchPage={fetchMyLeadsPage}
+              onSelect={(lead) => onLeadIdChange(lead)}
+            />
           </Field>
           <Field label="Client Name" required><input style={inputStyle} required placeholder="e.g. Sree Brindaavan Kindergarten" value={form.clientName} onChange={(e) => set('clientName', e.target.value)} /></Field>
           <Field label="Project Location" required><input style={inputStyle} required placeholder="e.g. Chitlapakkam" value={form.projectLocation} onChange={(e) => set('projectLocation', e.target.value)} /></Field>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, XCircle, Plus, Calendar, ChevronDown, X, Search, Eye, Pencil, CreditCard, Download, FileText, Upload, Bell, StickyNote, Save, ListChecks } from 'lucide-react';
-import { paymentsApi, leadsApi, projectsApi, managersApi, isMine } from '../api/client';
+import { paymentsApi, leadsApi, projectsApi, managersApi, isMine, fetchMyLeadsPage } from '../api/client';
+import LeadPicker from './LeadPicker';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR as formatINRShared, formatINRShort } from '../utils/currency';
@@ -244,12 +245,11 @@ const Payments = () => {
   const openEdit = (p) => { setMode('edit'); setForm({ ...emptyForm, ...p, paymentDate: p.paymentDate || p.dueDate || '' }); setModalOpen(true); };
   const closeModal = () => { setModalOpen(false); setForm(emptyForm); };
 
-  const onLeadChange = (val) => {
-    const lead = leads.find((l) => l.id === val || l.name === val);
+  const onLeadChange = (lead) => {
     setForm((prev) => ({
       ...prev,
-      leadId: lead?.id || prev.leadId,
-      customer: lead?.name || val,
+      leadId: lead ? lead.id : '',
+      customer: lead?.name || prev.customer,
       manager: lead?.manager || prev.manager,
       orderValue: lead?.budget ? parseAmount(lead.budget) : prev.orderValue,
     }));
@@ -731,11 +731,13 @@ const Payments = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.1rem' }}>
                   <div>
                     <label style={labelStyle}>Lead ID</label>
-                    <select value={form.leadId} onChange={(e) => onLeadChange(e.target.value)} disabled={readOnly} style={{ ...inputStyle, appearance: 'auto' }}>
-                      <option value="">Select Lead ID</option>
-                      {(mode === 'create' ? eligibleLeads : leads).map((l) => <option key={l.id} value={l.id}>{l.name ? `${l.id} — ${l.name}` : l.id}</option>)}
-                      {mode === 'create' && eligibleLeads.length === 0 && <option value="" disabled>No leads available for payment</option>}
-                    </select>
+                    <LeadPicker
+                      placeholder="Select Lead ID"
+                      disabled={readOnly}
+                      initialLabel={form.leadId}
+                      fetchPage={fetchMyLeadsPage}
+                      onSelect={(lead) => onLeadChange(lead)}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Invoice ID</label>
