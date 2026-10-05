@@ -1308,6 +1308,12 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   // Overdue = leads (excluding junk) whose scheduled follow-up date/time has passed.
   const overdueLeads = rangeLeads.filter(l => !(l.status || '').toLowerCase().includes('junk') && getFollowUpState(l) === 'overdue').length;
 
+  const snoMap = (() => {
+    const tm = (l) => { const ms = new Date(l.createdAt || l.date || 0).getTime(); return isNaN(ms) ? 0 : ms; };
+    const m = {};
+    [...leadsData].sort((a, b) => (tm(a) - tm(b)) || String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true })).forEach((l, i) => { m[l.id] = i + 1; });
+    return m;
+  })();
   const filteredLeads = leadsData.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.leadId.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1368,19 +1374,6 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 
       {/* Grid of 10 Cards to match screenshot */}
       <div className="leads-cards-grid">
-        <div
-          className={`lead-kpi-card slate-theme ${assigneeFilter === 'Unassigned' ? 'active-filter' : ''}`}
-          onClick={() => setAssigneeFilter(assigneeFilter === 'Unassigned' ? 'All' : 'Unassigned')}
-        >
-          <div className="card-top">
-            <div className="card-info">
-              <span className="card-label">Unassigned Leads</span>
-              <span className="card-value">{unassignedLeads}</span>
-            </div>
-            <div className="card-icon-box"><UserX size={20} /></div>
-          </div>
-          <div className="card-bottom"><span className="card-subtext">Not yet assigned</span></div>
-        </div>
         <div 
           className={`lead-kpi-card purple-theme ${statusFilter === 'All' ? 'active-filter' : ''}`}
           onClick={() => setStatusFilter('All')}
@@ -1397,6 +1390,19 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
           <div className="card-bottom">
             <span className="card-subtext">All leads in system</span>
           </div>
+        </div>
+        <div
+          className={`lead-kpi-card slate-theme ${assigneeFilter === 'Unassigned' ? 'active-filter' : ''}`}
+          onClick={() => setAssigneeFilter(assigneeFilter === 'Unassigned' ? 'All' : 'Unassigned')}
+        >
+          <div className="card-top">
+            <div className="card-info">
+              <span className="card-label">Unassigned Leads</span>
+              <span className="card-value">{unassignedLeads}</span>
+            </div>
+            <div className="card-icon-box"><UserX size={20} /></div>
+          </div>
+          <div className="card-bottom"><span className="card-subtext">Not yet assigned</span></div>
         </div>
 
         <div 
@@ -1639,7 +1645,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
                     onClick={() => setActiveHistoryLead(isCurrentActive ? null : lead)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td className="date-cell">{idx + 1}</td>
+                    <td className="date-cell">{snoMap[lead.id] || ''}</td>
                     <td className="date-cell">{lead.date}</td>
                     <td className="lead-id-cell">{lead.leadId}</td>
                     <td className="customer-name-cell"><strong>{lead.name}</strong></td>

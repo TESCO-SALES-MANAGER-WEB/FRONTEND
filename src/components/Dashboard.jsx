@@ -12,7 +12,8 @@ import {
   Clock,
   FileText,
   FolderOpen,
-  AlertCircle
+  AlertCircle,
+  UserX
 } from 'lucide-react';
 import './Dashboard.css';
 import DateRangePicker from './DateRangePicker';
@@ -105,6 +106,7 @@ const Dashboard = ({ setActivePage }) => {
 
   // ── Lead Management metrics ──
   const totalLeads = myLeads.length;
+  const unassignedLeads = leads.filter((l) => (!l.manager || String(l.manager).trim().toLowerCase() === 'unassigned') && inDate(l.date || l.createdAt)).length;
   const newLeads = myLeads.filter((l) => statusHas(l, 'new')).length;
   const hotLeads = myLeads.filter((l) => statusHas(l, 'hot')).length;
   const warmLeads = myLeads.filter((l) => statusHas(l, 'warm')).length;
@@ -177,6 +179,7 @@ const Dashboard = ({ setActivePage }) => {
       title: 'Lead Management',
       cards: [
         { title: 'Total Leads', value: totalLeads, sub: 'All leads in system', bg: '#f4f3ff', color: '#7c3aed', icon: <Users size={20} />, page: 'leads' },
+        { title: 'Unassigned Leads', value: unassignedLeads, sub: 'Not yet assigned', bg: '#fffbeb', color: '#d97706', icon: <UserX size={20} />, page: 'leads' },
         { title: 'New Leads', value: newLeads, sub: 'Freshly received', bg: '#eef4ff', color: '#2563eb', icon: <Users size={20} />, page: 'leads' },
         { title: 'Hot Leads', value: hotLeads, sub: 'High conversion chance', bg: '#fdf1f0', color: '#ef4444', icon: <Flame size={20} />, page: 'leads' },
         { title: 'Warm Leads', value: warmLeads, sub: 'Nurturing in progress', bg: '#ffffff', color: '#f97316', icon: <Thermometer size={20} />, page: 'leads' },
