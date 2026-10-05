@@ -181,7 +181,7 @@ const Payments = () => {
   const isOrderConfirmed = (p) => /confirm/i.test(String(p.status || ''));
   const leadHasOrderConfirmed = (leadId) => projects.some((p) => (p.leadId || '') === leadId && isOrderConfirmed(p));
   const leadHasPayment = (leadId) => payments.some((p) => p.leadId === leadId);
-  const eligibleLeads = leads.filter((l) => isMine(l.manager) && !leadHasPayment(l.id));
+  const eligibleLeads = leads.filter((l) => isMine(l.manager));
 
   // From/To ISO filter — empty bounds mean no date window (All Time).
   const inDateRange = (v) => {
@@ -281,10 +281,6 @@ const Payments = () => {
     if (!form.id || !form.customer) return;
     // ── Enforce the strict lifecycle when recording a NEW payment ──
     if (mode === 'create') {
-      if (leadHasPayment(form.leadId)) {
-        notify('This lead already has a payment record. Only one payment collection is allowed per lead.', 'warning');
-        return;
-      }
     }
     setSaving(true);
     const payload = buildPayload();

@@ -53,7 +53,7 @@ const ProjectHandover = () => {
   //   eligible = this manager's lead has an APPROVED quotation AND has not been order-confirmed yet.
   const leadHasApprovedQuote = (leadId) => quotes.some((q) => q.leadId === leadId && String(q.approvalStatus || '') === 'Approved');
   const leadHasOrder = (leadId) => projects.some((p) => (p.leadId || '') === leadId);
-  const eligibleLeads = leads.filter((l) => isMine(l.manager) && !leadHasOrder(l.id));
+  const eligibleLeads = leads.filter((l) => isMine(l.manager));
 
   // Access control: a manager only sees order confirmations for THEIR OWN assigned leads.
   const myLeadIds = new Set(leads.filter((l) => isMine(l.manager)).map((l) => l.id));

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import './AppointmentsVisits.css';
 import DateRangePicker from './DateRangePicker';
-import { appointmentsApi, leadsApi } from '../api/client';
+import { appointmentsApi, leadsApi, isMine } from '../api/client';
 import { notify } from '../utils/notify';
 
 // Local-time YYYY-MM-DD (never toISOString — that shifts to UTC and moves IST dates back a day)
@@ -114,7 +114,7 @@ const AppointmentsVisits = () => {
         if (Array.isArray(data)) {
           const mapped = [...data].sort((a, b) => new Date(b.createdAt || b.updatedAt || b.date || 0) - new Date(a.createdAt || a.updatedAt || a.date || 0)).map(apptFromApi).filter((a) => !a.cancelled);
           setAllAppts(mapped);
-          setAppointmentsList(mapped.filter((a) => (a.manager || '').trim().toLowerCase() === mgrKey));
+          setAppointmentsList(mapped.filter((a) => isMine(a.manager)));
         }
       })
       .catch((e) => console.error('Failed to load appointments:', e));
@@ -188,7 +188,7 @@ const AppointmentsVisits = () => {
   // Customers (leads) assigned to this manager — for the Create Visit dropdown
   React.useEffect(() => {
     leadsApi.list()
-      .then((data) => { if (Array.isArray(data)) setMyLeads(data.filter((l) => (l.manager || '').trim().toLowerCase() === mgrKey)); })
+      .then((data) => { if (Array.isArray(data)) setMyLeads(data.filter((l) => isMine(l.manager))); })
       .catch((e) => console.error('Failed to load leads:', e));
   }, []);
 
@@ -540,20 +540,6 @@ const AppointmentsVisits = () => {
     e.preventDefault();
     const isVisit = newType === 'Site Visit';
     const selectedLead = myLeads.find((l) => l.id === newLeadId);
-    // ── Enforce the strict lifecycle before creating ──
-    if (isVisit) {
-      if (!leadHasCompletedAppointment(selectedLead)) {
-        notify('This lead has no completed appointment yet — complete the appointment first.', 'warning');
-        return;
-      }
-      if (leadHasVisit(selectedLead)) {
-        notify('This lead already has a visit. Only one visit is allowed per lead.', 'warning');
-        return;
-      }
-    } else if (leadHasAppointment(selectedLead)) {
-      notify('This lead already has an appointment. Only one appointment is allowed per lead.', 'warning');
-      return;
-    }
     const dateToSave = newDate || _ymdLocal(new Date());
     const timeToSave = (newTimeStart && newTimeEnd)
       ? `${formatTime12h(newTimeStart)} - ${formatTime12h(newTimeEnd)}`
@@ -648,9 +634,9 @@ const AppointmentsVisits = () => {
   const activeRescheduleItem = appointmentsList.find(apt => apt.id === activeRescheduleAptId);
 
   // Leads this manager may plan a visit for (appointment completed, no visit yet).
-  const eligibleVisitLeads = myLeads.filter((l) => leadHasCompletedAppointment(l) && !leadHasVisit(l));
-  // Leads this manager may create an APPOINTMENT for (no appointment yet).
-  const eligibleApptLeads = myLeads.filter((l) => !leadHasAppointment(l));
+  // Appointments & visits are independent — show ALL of this manager's leads for both.
+  const eligibleVisitLeads = myLeads;
+  const eligibleApptLeads = myLeads;
   // The list shown in the Create modal depends on the selected type.
   const eligibleCreateLeads = newType === 'Site Visit' ? eligibleVisitLeads : eligibleApptLeads;
 
@@ -1099,7 +1085,7 @@ const AppointmentsVisits = () => {
                 {eligibleCreateLeads.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}{l.id ? ` (${l.id})` : ''}</option>
                 ))}
-                {eligibleCreateLeads.length === 0 && <option value="" disabled>{newType === 'Site Visit' ? 'No leads with a completed appointment yet' : 'All your leads already have an appointment'}</option>}
+                {eligibleCreateLeads.length === 0 && <option value="" disabled>No assigned leads available</option>}
               </select>
             </div>
 

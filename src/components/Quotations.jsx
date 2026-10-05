@@ -103,7 +103,7 @@ const Quotations = () => {
   // Eligible leads = leads with a completed visit for this manager and no active quotation.
   // Lifecycle made independent: a quotation can be created for ANY of this manager's
   // leads with no active (non-rejected) quotation — a completed visit is no longer required.
-  const eligibleLeads = (Array.isArray(myLeads) ? myLeads : []).filter((l) => l && l.id && !leadActiveQuote(l.id));
+  const eligibleLeads = (Array.isArray(myLeads) ? myLeads : []).filter((l) => l && l.id);
   const leadIdHasCompletedVisit = (leadId) => myCompletedVisits.some((a) => { const l = resolveLead(a); return l && l.id === leadId; });
 
   // ── Upload Quotation (create a new quotation with a PDF) — same as the Coordinator ──
@@ -131,11 +131,6 @@ const Quotations = () => {
     e.preventDefault();
     if (!form.leadId || !form.customer) { notify('Select a Lead ID and enter the customer.', 'warning'); return; }
     // ── Enforce the strict lifecycle before uploading ──
-    const active = leadActiveQuote(form.leadId);
-    if (active) {
-      notify(`This lead already has a ${String(active.approvals).toLowerCase()} quotation. A new one is allowed only after it is rejected.`, 'warning');
-      return;
-    }
     // PDF is mandatory — a quotation cannot be created without a PDF document.
     if (!form.fileName) {
       notify('A PDF quotation file is required before uploading.', 'warning');
