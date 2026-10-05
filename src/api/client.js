@@ -36,6 +36,24 @@ export const getUser = () => {
   }
 };
 
+// Robust "is this record assigned to the logged-in manager?" check. Matches the stored
+// assignment value against the manager's NAME, EMAIL or EMPLOYEE ID (case/space-insensitive),
+// so a lead assigned under any of those identifiers resolves to this manager and never
+// wrongly shows as Unassigned / missing from their lists.
+export const myAssignmentKeys = () => {
+  const u = getUser() || {};
+  let ln = '', le = '';
+  try { ln = localStorage.getItem('mgr_name') || ''; le = localStorage.getItem('mgr_email') || ''; } catch (e) { /* ignore */ }
+  return [u.name, u.email, u.employeeId, ln, le]
+    .map((x) => String(x == null ? '' : x).trim().toLowerCase())
+    .filter(Boolean);
+};
+export const isMine = (assignValue) => {
+  const v = String(assignValue == null ? '' : assignValue).trim().toLowerCase();
+  if (!v || v === 'unassigned') return false;
+  return myAssignmentKeys().includes(v);
+};
+
 export async function api(path, { method = 'GET', body, auth = false } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth && getToken()) headers.Authorization = `Bearer ${getToken()}`;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, XCircle, Plus, Calendar, ChevronDown, X, Search, Eye, Pencil, CreditCard, Download, FileText, Upload, Bell, StickyNote, Save, ListChecks } from 'lucide-react';
-import { paymentsApi, leadsApi, projectsApi, managersApi } from '../api/client';
+import { paymentsApi, leadsApi, projectsApi, managersApi, isMine } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR as formatINRShared, formatINRShort } from '../utils/currency';
@@ -181,7 +181,7 @@ const Payments = () => {
   const isOrderConfirmed = (p) => /confirm/i.test(String(p.status || ''));
   const leadHasOrderConfirmed = (leadId) => projects.some((p) => (p.leadId || '') === leadId && isOrderConfirmed(p));
   const leadHasPayment = (leadId) => payments.some((p) => p.leadId === leadId);
-  const eligibleLeads = leads.filter((l) => (l.manager || '').trim() === mgrName && leadHasOrderConfirmed(l.id) && !leadHasPayment(l.id));
+  const eligibleLeads = leads.filter((l) => isMine(l.manager) && !leadHasPayment(l.id));
 
   // From/To ISO filter — empty bounds mean no date window (All Time).
   const inDateRange = (v) => {
@@ -198,11 +198,11 @@ const Payments = () => {
   // Access control: a manager only sees payments for THEIR OWN assigned leads. The payments
   // collection is shared, so scope to this manager (by the payment's manager or its lead).
   const myLeadIds = useMemo(
-    () => new Set((Array.isArray(leads) ? leads : []).filter((l) => (l.manager || '').trim() === mgrName).map((l) => l.id)),
+    () => new Set((Array.isArray(leads) ? leads : []).filter((l) => isMine(l.manager)).map((l) => l.id)),
     [leads, mgrName]
   );
   const mine = useMemo(
-    () => payments.filter((p) => (p.manager || '').trim() === mgrName || (p.leadId && myLeadIds.has(p.leadId))),
+    () => payments.filter((p) => isMine(p.manager) || (p.leadId && myLeadIds.has(p.leadId))),
     [payments, myLeadIds, mgrName]
   );
 
@@ -281,10 +281,6 @@ const Payments = () => {
     if (!form.id || !form.customer) return;
     // ── Enforce the strict lifecycle when recording a NEW payment ──
     if (mode === 'create') {
-      if (!leadHasOrderConfirmed(form.leadId)) {
-        notify('This lead has no confirmed order yet — confirm the order first.', 'warning');
-        return;
-      }
       if (leadHasPayment(form.leadId)) {
         notify('This lead already has a payment record. Only one payment collection is allowed per lead.', 'warning');
         return;
@@ -742,7 +738,7 @@ const Payments = () => {
                     <select value={form.leadId} onChange={(e) => onLeadChange(e.target.value)} disabled={readOnly} style={{ ...inputStyle, appearance: 'auto' }}>
                       <option value="">Select Lead ID</option>
                       {(mode === 'create' ? eligibleLeads : leads).map((l) => <option key={l.id} value={l.id}>{l.name ? `${l.id} — ${l.name}` : l.id}</option>)}
-                      {mode === 'create' && eligibleLeads.length === 0 && <option value="" disabled>No order-confirmed leads awaiting payment</option>}
+                      {mode === 'create' && eligibleLeads.length === 0 && <option value="" disabled>No leads available for payment</option>}
                     </select>
                   </div>
                   <div>

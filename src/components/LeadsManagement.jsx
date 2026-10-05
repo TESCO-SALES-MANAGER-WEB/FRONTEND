@@ -27,7 +27,7 @@ const fuFrom12 = (h, m, ap) => {
 };
 import DateRangePicker from './DateRangePicker';
 import AddLeadWizard from './AddLeadWizard';
-import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi, managersApi } from '../api/client';
+import { leadsApi, pipelineApi, appointmentsApi, quotationsApi, projectsApi, managersApi, isMine } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 import { formatINR } from '../utils/currency';
@@ -323,7 +323,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     leadsApi.list()
       .then((data) => {
         if (!Array.isArray(data)) return;
-        const mine = data.map(leadFromApi).filter((l) => (l.assignTo || '').trim().toLowerCase() === mgrKey);
+        const mine = data.map(leadFromApi).filter((l) => isMine(l.assignTo));
         setLeadsData((prev) => {
           // No unsynced local edits -> adopt the server snapshot as-is.
           if (dirtyRef.current.size === 0) return mine;
@@ -1295,7 +1295,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   const unassignedLeads = rangeLeads.filter(l => !l.assignTo || String(l.assignTo).toLowerCase() === 'unassigned').length;
   // ── Record-based counts (match the Manager Dashboard) ──
   // Appt. Fixed = this manager's scheduled appointments (site visits excluded)
-  const myApptRecords = apptRecords.filter(a => (a.manager || '').trim().toLowerCase() === mgrKey);
+  const myApptRecords = apptRecords.filter(a => isMine(a.manager));
   const apptFixedLeads = myApptRecords.filter(a => a.type !== 'Visits' && inSelectedRange(a.date || a.createdAt)).length;
   // Quotation Sent = quotations raised against this manager's own leads
   const myLeadIdSet = new Set(rangeLeads.map(l => l.leadId));

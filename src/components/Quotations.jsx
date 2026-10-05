@@ -10,7 +10,7 @@ import {
   FileUp
 } from 'lucide-react';
 import './Quotations.css';
-import { quotationsApi, leadsApi, appointmentsApi, api } from '../api/client';
+import { quotationsApi, leadsApi, appointmentsApi, api, isMine } from '../api/client';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { notify } from '../utils/notify';
 
@@ -43,7 +43,7 @@ const Quotations = () => {
       .then(([quotes, leads]) => {
         const all = Array.isArray(leads) ? leads : [];
         setAllLeads(all);
-        const myLeadsArr = all.filter((l) => (l.manager || '').trim() === mgrName);
+        const myLeadsArr = all.filter((l) => isMine(l.manager));
         setMyLeads(myLeadsArr);
         const myLeadIds = new Set(myLeadsArr.map((l) => l.id));
         const mine = (Array.isArray(quotes) ? quotes : [])
@@ -101,13 +101,9 @@ const Quotations = () => {
   };
   const leadActiveQuote = (leadId) => quotesList.find((q) => q.leadId === leadId && q.approvals && q.approvals !== 'Rejected');
   // Eligible leads = leads with a completed visit for this manager and no active quotation.
-  const eligibleLeadsMap = new Map();
-  myCompletedVisits.forEach((a) => {
-    const l = resolveLead(a);
-    if (!l || !l.id || leadActiveQuote(l.id) || eligibleLeadsMap.has(l.id)) return;
-    eligibleLeadsMap.set(l.id, l);
-  });
-  const eligibleLeads = Array.from(eligibleLeadsMap.values());
+  // Lifecycle made independent: a quotation can be created for ANY of this manager's
+  // leads with no active (non-rejected) quotation — a completed visit is no longer required.
+  const eligibleLeads = (Array.isArray(myLeads) ? myLeads : []).filter((l) => l && l.id && !leadActiveQuote(l.id));
   const leadIdHasCompletedVisit = (leadId) => myCompletedVisits.some((a) => { const l = resolveLead(a); return l && l.id === leadId; });
 
   // ── Upload Quotation (create a new quotation with a PDF) — same as the Coordinator ──
@@ -135,10 +131,6 @@ const Quotations = () => {
     e.preventDefault();
     if (!form.leadId || !form.customer) { notify('Select a Lead ID and enter the customer.', 'warning'); return; }
     // ── Enforce the strict lifecycle before uploading ──
-    if (!leadIdHasCompletedVisit(form.leadId)) {
-      notify('This lead has no completed visit yet — complete the site visit first.', 'warning');
-      return;
-    }
     const active = leadActiveQuote(form.leadId);
     if (active) {
       notify(`This lead already has a ${String(active.approvals).toLowerCase()} quotation. A new one is allowed only after it is rejected.`, 'warning');
@@ -492,7 +484,7 @@ const Quotations = () => {
                 <select required value={form.leadId} onChange={(e) => onLeadSelect(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.9rem' }}>
                   <option value="">Select Lead ID</option>
                   {eligibleLeads.map((l) => (<option key={l.id} value={l.id}>{l.name ? `${l.id} — ${l.name}` : l.id}</option>))}
-                  {eligibleLeads.length === 0 && <option value="" disabled>No leads with a completed visit awaiting a quotation</option>}
+                  {eligibleLeads.length === 0 && <option value="" disabled>No leads available for a quotation</option>}
                 </select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Check } from 'lucide-react';
 import './ProjectHandover.css';
-import { projectsApi, leadsApi, quotationsApi } from '../api/client';
+import { projectsApi, leadsApi, quotationsApi, isMine } from '../api/client';
 import { notify } from '../utils/notify';
 import HandoverForm from './HandoverForm';
 
@@ -53,12 +53,12 @@ const ProjectHandover = () => {
   //   eligible = this manager's lead has an APPROVED quotation AND has not been order-confirmed yet.
   const leadHasApprovedQuote = (leadId) => quotes.some((q) => q.leadId === leadId && String(q.approvalStatus || '') === 'Approved');
   const leadHasOrder = (leadId) => projects.some((p) => (p.leadId || '') === leadId);
-  const eligibleLeads = leads.filter((l) => (l.manager || '').trim() === mgrName && leadHasApprovedQuote(l.id) && !leadHasOrder(l.id));
+  const eligibleLeads = leads.filter((l) => isMine(l.manager) && !leadHasOrder(l.id));
 
   // Access control: a manager only sees order confirmations for THEIR OWN assigned leads.
-  const myLeadIds = new Set(leads.filter((l) => (l.manager || '').trim() === mgrName).map((l) => l.id));
+  const myLeadIds = new Set(leads.filter((l) => isMine(l.manager)).map((l) => l.id));
   const myProjects = projects.filter((p) =>
-    [p.manager, p.salesperson, p.salespersonName].some((v) => (v || '').trim() === mgrName) ||
+    [p.manager, p.salesperson, p.salespersonName].some((v) => isMine(v)) ||
     (p.leadId && myLeadIds.has(p.leadId))
   );
 
