@@ -46,7 +46,7 @@ const ProjectHandover = () => {
     .catch((e) => console.error('Failed to load order confirmations:', e))
     .finally(() => setLoaded(true));
   useEffect(() => { load(); }, []);
-  useEffect(() => { leadsApi.list().then((d) => { if (Array.isArray(d)) setLeads(d); }).catch((e) => console.error('Failed to load leads:', e)); }, []);
+  useEffect(() => { const ll = () => leadsApi.list().then((d) => { if (Array.isArray(d) && d.length) setLeads(d); }).catch((e) => console.error('Failed to load leads:', e)); ll(); const iv = setInterval(ll, 15000); return () => clearInterval(iv); }, []);
   useEffect(() => { quotationsApi.list().then((d) => { if (Array.isArray(d)) setQuotes(d); }).catch((e) => console.error('Failed to load quotations:', e)); }, []);
 
   // ── Lifecycle gating for the Order Confirmation lead picker ──

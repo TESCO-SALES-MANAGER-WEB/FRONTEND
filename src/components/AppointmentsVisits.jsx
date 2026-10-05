@@ -187,9 +187,12 @@ const AppointmentsVisits = () => {
 
   // Customers (leads) assigned to this manager — for the Create Visit dropdown
   React.useEffect(() => {
-    leadsApi.list()
-      .then((data) => { if (Array.isArray(data)) setMyLeads(data.filter((l) => isMine(l.manager))); })
+    const loadMyLeads = () => leadsApi.list()
+      .then((data) => { if (Array.isArray(data) && data.length) setMyLeads(data.filter((l) => isMine(l.manager))); })
       .catch((e) => console.error('Failed to load leads:', e));
+    loadMyLeads();
+    const iv = setInterval(loadMyLeads, 15000);
+    return () => clearInterval(iv);
   }, []);
 
   // The lead id an appointment/visit belongs to. Prefer the stored leadId; otherwise recover it
