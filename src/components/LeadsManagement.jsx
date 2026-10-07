@@ -377,12 +377,18 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       // the backend (the single source of truth) already holds.
       const changed = leadsData.filter((l) => serverSigRef.current.get(l.id) !== leadSig(l));
       if (changed.length === 0) { writingIds.forEach((id) => dirtyRef.current.delete(id)); return; }
-      leadsApi.bulk(changed.map(leadToApi))
-        .then(() => {
-          changed.forEach((l) => { try { serverSigRef.current.set(l.id, leadSig(l)); } catch (_) {} });
-          writingIds.forEach((id) => dirtyRef.current.delete(id));
-        })
-        .catch((e) => console.error('Failed to sync leads:', e));
+      const done = (l) => { try { serverSigRef.current.set(l.id, leadSig(l)); } catch (_) {} dirtyRef.current.delete(l.id); };
+      // EXISTING leads -> authoritative per-lead PUT (server \$set-merges just this lead, so an
+      // edit never clobbers another lead/field and can't be reverted by a stale whole-array
+      // write). NEW leads -> bulk upsert (creates them by id).
+      const fresh = changed.filter((l) => !serverSigRef.current.has(l.id));
+      const edited = changed.filter((l) => serverSigRef.current.has(l.id));
+      if (fresh.length) {
+        leadsApi.bulk(fresh.map(leadToApi)).then(() => fresh.forEach(done)).catch((e) => console.error('Failed to create leads:', e));
+      }
+      edited.forEach((l) => {
+        leadsApi.update(l.leadId, leadToApi(l)).then(() => done(l)).catch((e) => console.error('Failed to sync lead', l.leadId, e));
+      });
     }, 800);
     return () => { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); };
   }, [leadsData, leadsLoaded]);
