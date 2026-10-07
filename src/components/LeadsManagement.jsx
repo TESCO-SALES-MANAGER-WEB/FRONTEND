@@ -324,6 +324,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       .then((data) => {
         if (!Array.isArray(data)) return;
         const mine = data.map(leadFromApi).filter((l) => isMine(l.assignTo));
+        serverSigRef.current = new Map(mine.map((l) => [l.id, leadSig(l)]));
         setLeadsData((prev) => {
           // No unsynced local edits -> adopt the server snapshot as-is.
           if (dirtyRef.current.size === 0) return mine;
@@ -355,6 +356,13 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
   // refresh until their write is acknowledged.
   const dirtyRef = useRef(new Set());
   const markDirty = (id) => { if (id != null) dirtyRef.current.add(id); };
+  // Signature of each lead as the server last returned it (API shape). The sync effect
+  // below writes ONLY the leads whose signature differs — i.e. the ones this manager
+  // actually changed — so a stale copy of an untouched lead can never overwrite an edit
+  // made in another portal. Model-to-model comparison (both sides via leadFromApi) means
+  // an untouched lead always matches and is never re-sent.
+  const serverSigRef = useRef(new Map());
+  const leadSig = (l) => { try { return JSON.stringify(leadToApi(l)); } catch (_) { return String(l && l.id); } };
   React.useEffect(() => {
     if (!leadsLoaded) return;
     if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current);
@@ -362,8 +370,18 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
       // Snapshot which ids this write covers; only clear those on success so
       // edits made while the write is in flight stay protected.
       const writingIds = new Set(dirtyRef.current);
-      leadsApi.bulk(leadsData.map(leadToApi))
-        .then(() => { writingIds.forEach((id) => dirtyRef.current.delete(id)); })
+      // Write ONLY the leads whose current state differs from the last server snapshot
+      // (the ones this manager actually edited). Pushing the whole visible array let a
+      // stale copy of an untouched lead overwrite a change made in another portal
+      // (Coordinator/Head) — cross-portal edits reverting. Untouched leads keep whatever
+      // the backend (the single source of truth) already holds.
+      const changed = leadsData.filter((l) => serverSigRef.current.get(l.id) !== leadSig(l));
+      if (changed.length === 0) { writingIds.forEach((id) => dirtyRef.current.delete(id)); return; }
+      leadsApi.bulk(changed.map(leadToApi))
+        .then(() => {
+          changed.forEach((l) => { try { serverSigRef.current.set(l.id, leadSig(l)); } catch (_) {} });
+          writingIds.forEach((id) => dirtyRef.current.delete(id));
+        })
         .catch((e) => console.error('Failed to sync leads:', e));
     }, 800);
     return () => { if (bulkTimerRef.current) clearTimeout(bulkTimerRef.current); };
@@ -605,15 +623,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
 </style></head><body>
   <div class="hdr">
     <div class="logo-wrap">
-      <svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true">
-        <g fill="#8DC63F">
-          <polygon points="4,30 15,12 21,12 10,30"/>
-          <polygon points="13,30 24,12 30,12 19,30"/>
-          <polygon points="22,30 33,12 39,12 28,30"/>
-        </g>
-        <rect x="4" y="32" width="30" height="3" fill="#4B7A1E"/>
-      </svg>
-      <div class="logo-text"><div class="t1">TESCO</div><div class="t2">STRUCTURES</div></div>
+      <img src="/logo.png" alt="Tesco Structures" style="height:48px;display:block" />
     </div>
     <div class="hdr-email">tescostructures@gmail.com</div>
   </div>
@@ -820,15 +830,7 @@ const LeadsManagement = ({ openAddSignal = 0 }) => {
     const inner = `<div class="tsdoc">
   <div class="hdr">
     <div class="logo-wrap">
-      <svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true">
-        <g fill="#8DC63F">
-          <polygon points="4,30 15,12 21,12 10,30"/>
-          <polygon points="13,30 24,12 30,12 19,30"/>
-          <polygon points="22,30 33,12 39,12 28,30"/>
-        </g>
-        <rect x="4" y="32" width="30" height="3" fill="#4B7A1E"/>
-      </svg>
-      <div class="logo-text"><div class="t1">TESCO</div><div class="t2">STRUCTURES</div></div>
+      <img src="/logo.png" alt="Tesco Structures" style="height:48px;display:block" />
     </div>
     <div class="hdr-email">tescostructures@gmail.com</div>
   </div>
